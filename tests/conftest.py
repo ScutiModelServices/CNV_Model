@@ -54,7 +54,7 @@ class FakeAdapter:
         self.downloads.append((entry.name, quant))
 
 
-def make_router(default="lfm3", **options):
+def make_router(**options):
     """A router over the shipped catalog whose engines are fakes."""
     adapters = {"ollama": FakeAdapter("ollama", **options), "llamacpp": FakeAdapter("llamacpp", **options)}
-    return ModelRouter(CATALOG, adapters, default)
+    return ModelRouter(CATALOG, adapters)

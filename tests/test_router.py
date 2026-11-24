@@ -25,16 +25,16 @@ def entry(name, caps=()):
 
 def make():
     adapter = Adapter()
-    return ModelRouter({"a": entry("a", ["tools"]), "b": entry("b")}, {"ollama": adapter}, "a"), adapter
+    return ModelRouter({"a": entry("a", ["tools"]), "b": entry("b")}, {"ollama": adapter}), adapter
 
 
 def run(coro): return asyncio.run(coro)
 
 
-def chat(router, model=None, **extra): return run(router.chat(model, [], temperature=0, max_tokens=1, **extra))
+def chat(router, model="a", **extra): return run(router.chat(model, [], temperature=0, max_tokens=1, **extra))
 
 
-def test_default_model_and_quant_in_result():
+def test_model_and_quant_in_result():
     router, _ = make()
     out = chat(router)
     assert out["content"] == "a:A" and out["model"] == "a" and out["quant"] == "A"

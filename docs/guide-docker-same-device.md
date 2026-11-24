@@ -20,13 +20,12 @@ Copy `.env.example` to `.env.compose`; saved admin settings take precedence over
 | `SERVICE_ADMIN_PASSWORD` | empty | Enables authenticated public calls and admin access. |
 | `SERVICE_PORT` | `29204` | Published load-balancer port. |
 | `SERVICE_OLLAMA_URL` | `http://host.docker.internal:11434` | Required Ollama address; explicitly empty values fail startup. |
-| `SERVICE_DEFAULT_MODEL` | `lfm3` | The catalog model a request without `model` uses. A saved admin setting wins. |
 | `SERVICE_LLAMACPP_URL` | `http://cnv_bitnet_server:8080` | The bitnet.cpp sidecar (the `bitnet2b` model). |
 | `SERVICE_OLLAMA_PARALLEL` | `2` | Generations one replica runs at once; set it to the `OLLAMA_NUM_PARALLEL` of your Ollama. |
 | `SERVICE_REPLICAS` | `1` | API replicas sharing Ollama. |
 | `SERVICE_MEM_LIMIT` | `0` | Optional API container memory cap; does not cap Ollama. |
 
-Admin settings: `update_check_hours` (6), `max_inflight` (0 = 4), `cache_size` (256), `thinking` (off), `hide_reasoning` (true), `warm` (true, restart). CPU threads (`num_thread`) are sent to Ollama with every request; unset lets Ollama decide. Details: [admin page](guide-web-ui.md#settings).
+Admin settings: `max_inflight` (0 = 4), `cache_size` (256), `thinking` (off), `hide_reasoning` (true). CPU threads (`num_thread`) are sent to Ollama with every request; unset lets Ollama decide. Details: [admin page](guide-web-ui.md#settings).
 
 ## Start
 
@@ -46,7 +45,7 @@ Tokens, settings and replica update markers live in `cnv_model_data`. Ollama man
 curl http://127.0.0.1:29204/health
 ```
 
-Warm-up runs in the background. The health endpoint and admin page remain available if Ollama is down; chat returns 503. A successful load or retry sets `ready` true. Open `http://127.0.0.1:29204/admin/` and create a public token. Container callers on `citadel_core` use `http://cnv_model_lb:29204`.
+There is no warm-up: a model loads on its first request. The health endpoint and admin page remain available if Ollama is down; chat returns 503. A successful load or retry sets `ready` true. Open `http://127.0.0.1:29204/admin/` and create a public token. Container callers on `citadel_core` use `http://cnv_model_lb:29204`.
 
 ## Updating
 
@@ -55,7 +54,7 @@ docker compose --env-file .env.compose up -d --build
 docker compose restart cnv_model_lb
 ```
 
-Model pulls use the [Updates card](guide-web-ui.md#updating-the-model-files). Docker builds have not been verified for this migration.
+Model weights are downloaded per build on the Models card of the admin page. Docker builds have not been verified for this migration.
 
 ## Problems
 

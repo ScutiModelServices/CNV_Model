@@ -6,7 +6,7 @@ from conftest import make_router
 from errors import EngineError
 from tokens import TokenStore
 
-BODY = {"messages": [{"role": "user", "content": "hi"}]}
+BODY = {"model": "lfm3", "messages": [{"role": "user", "content": "hi"}]}
 TOOL = {"name": "f", "parameters": {"type": "object", "properties": {}}}
 ADMIN = {"X-Internal-Token": "pw"}
 
@@ -19,7 +19,7 @@ def client(router=None, admin_password=None, **options):
     return TestClient(create_app(router or make_router(), admin_password, fetch_sizes=no_hub, **options))
 
 
-def test_chat_defaults_to_default_model_and_reports_usage():
+def test_chat_reports_model_quant_and_usage():
     body = client().post("/v1/chat", json={**BODY, "temperature": 0.3, "max_tokens": 50}).json()
     assert body["content"] == "hello" and body["finish_reason"] == "stop"
     assert body["model"] == "lfm3" and body["quant"] == "Q4_K_M"
@@ -30,6 +30,10 @@ def test_chat_picks_the_named_model_and_engine():
     router = make_router()
     body = client(router).post("/v1/chat", json={**BODY, "model": "bitnet2b"}).json()
     assert body["model"] == "bitnet2b" and router.adapters["llamacpp"].loads == [("bitnet2b", "i2_s")]
+
+
+def test_chat_without_model_is_422():
+    assert client().post("/v1/chat", json={"messages": [{"role": "user", "content": "hi"}]}).status_code == 422
 
 
 def test_chat_unknown_model_is_404():
@@ -61,7 +65,7 @@ def test_stream_unknown_model_is_404():
 def test_models_lists_capabilities():
     rows = client().get("/v1/models").json()
     lfm3 = next(r for r in rows if r["name"] == "lfm3")
-    assert lfm3["default"] and "tools" in lfm3["capabilities"] and {r["name"] for r in rows} >= {"bitnet2b", "minicpm52b", "sparkx26"}
+    assert "tools" in lfm3["capabilities"] and {r["name"] for r in rows} >= {"bitnet2b", "minicpm52b", "sparkx26"}
 
 
 def test_admin_models_lists_builds_under_each_model():
@@ -93,4 +97,4 @@ def test_download_goes_to_the_models_engine():
 
 def test_health_is_open_and_lists_models():
     body = client(admin_password="pw").get("/health").json()
-    assert body["status"] == "ok" and body["model"] == "lfm3" and "bitnet2b" in body["models"]
+    assert body["status"] == "ok" and "model" not in body and "bitnet2b" in body["models"]

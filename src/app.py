@@ -33,7 +33,6 @@ from options import SETTINGS
 from router import ModelRouter
 import settings
 from tokens import LatencyHistogram, TokenStore
-from updates import Updates
 
 _log = logging.getLogger(__name__)
 
@@ -61,7 +60,7 @@ class Tool(BaseModel):
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")  # schema, project and thinking are refused, not silently ignored
 
-    model: str | None = Field(None, max_length=64)  # a catalog name; none = the default model
+    model: str = Field(min_length=1, max_length=64)  # a catalog name; every request names its model
     messages: list[Message] = Field(min_length=1, max_length=64)
     tools: list[Tool] | None = Field(None, max_length=32)
     temperature: float = Field(0.0, ge=0, le=2)
@@ -112,7 +111,7 @@ def _hub_json(url: str) -> list[dict[str, Any]]:
 
 
 def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRouter:
-    """The catalog, one adapter per engine, and the saved default model and quantizations."""
+    """The catalog, one adapter per engine, and the saved quantizations."""
     folder = Path(os.environ.get("SERVICE_CONFIGS_DIR", Path(__file__).resolve().parents[1] / "configs" / "models"))
     catalog = load_catalog(folder)
 
@@ -126,22 +125,20 @@ def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRou
     }
     saved = settings.load(tokens.settings_path).get("quants") or {}
     quants = {name: quant for name, quant in saved.items() if name in catalog and any(b.quant == quant for b in catalog[name].builds)}
-    default = (config.get("default_model") if config else "") or os.environ.get("SERVICE_DEFAULT_MODEL", "")
     raw = os.environ.get("SERVICE_OLLAMA_PARALLEL", "").strip() or "2"
     if not raw.isdigit() or int(raw) < 1:
         raise ValueError("SERVICE_OLLAMA_PARALLEL must be a whole number of 1 or more")
-    return ModelRouter(catalog, adapters, default if default in catalog else next(iter(catalog)), quants, int(raw))
+    return ModelRouter(catalog, adapters, quants, int(raw))
 
 
 def create_app(router: ModelRouter | None = None, admin_password: str | None = None,
-               tokens: TokenStore | None = None, warm: bool = False,
-               updates: Updates | None = None, check_hours: float = 0, max_inflight: int | None = None,
+               tokens: TokenStore | None = None, max_inflight: int | None = None,
                cache_size: int | None = None, config: settings.Config | None = None,
                fetch_sizes: Any = _hub_json) -> FastAPI:
     """`admin_password` (SERVICE_ADMIN_PASSWORD) unlocks /admin/, where each project gets a token of its own; when it
     is set, every call except /health must send one of those tokens in the X-Internal-Token header. Unset = no
     auth at all (local use only). `tokens` holds the project tokens (SERVICE_TOKENS_FILE). `cache_size` > 0 keeps that
-    many answers per replica (SERVICE_CACHE_SIZE). `config` (the admin page's settings) replaces `warm`, `check_hours`,
+    many answers per replica (SERVICE_CACHE_SIZE). `config` (the admin page's settings) replaces
     `max_inflight` and `cache_size` and keeps them live; without it they stay fixed. `fetch_sizes(url)` reads the Hub file tree."""
     tokens = tokens or TokenStore(os.environ.get("SERVICE_TOKENS_FILE", "tokens.json"))
     router = router or build_router(tokens, config)
@@ -173,39 +170,9 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     seen = read_marker()
 
-    async def default_ref(call: str) -> Any:
-        entry = router.entry(None)
-        adapter = router.adapters[entry.engine]
-        return await asyncio.to_thread(getattr(adapter, call), entry, router.quant_of(entry))
-
-    async def pull_default() -> None:
-        entry = router.entry(None)
-        await asyncio.to_thread(router.adapters[entry.engine].download, entry, router.quant_of(entry))
-
     async def unload_all() -> None:
         await asyncio.to_thread(bump_marker)
         router.forget()
-
-    updates = updates or Updates(router.default, cached_sha=lambda: default_ref("local_ref"), remote_sha=lambda: default_ref("remote_ref"),
-                                 download=pull_default, unload=unload_all,
-                                 description="Checks the downloaded build of the default model against the online manifest without downloading weights. Only Download fetches model files.",
-                                 reload_note="Weights downloaded. Every replica drops the old copy within a few seconds and loads the new weights on its next request.")
-
-    async def check_forever() -> None:
-        """Checks every `update_check_hours` (0 = off). The value is read again every second, so the admin page can change it."""
-        last = None
-        while True:
-            wait = (config.get("update_check_hours") if config else check_hours) * 3600
-            now = time.monotonic()
-            if wait > 0 and (last is None or now - last >= wait):
-                last = now
-                try:
-                    status = await updates.check()
-                    if status["error"]:
-                        _log.warning("Update check failed: %s", status["error"])
-                except Exception:
-                    _log.exception("Update check failed")
-            await asyncio.sleep(min(wait, 1.0) if wait > 0 else 1.0)
 
     async def sync_forever() -> None:
         """Applies saved admin values and drops models another replica replaced with new weights."""
@@ -213,8 +180,6 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         while True:
             saved = await asyncio.to_thread(settings.load, tokens.settings_path)
             threads = saved.get("num_thread") or threads
-            if (name := config.get("default_model")) in router.catalog:
-                router.default = name
             for name, quant in (saved.get("quants") or {}).items():
                 if name in router.catalog and quant != router.quant_of(router.catalog[name]) and any(b.quant == quant for b in router.catalog[name].builds):
                     router.set_quant(name, quant)
@@ -222,30 +187,12 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             if current != seen:
                 seen = current
                 router.forget()
-            # A dropped model (download, quant change, sync) leaves /health "Starting" until a request loads it: reload once per drop.
-            if config.get("warm") and not router.ready and router.generation != warmed:
-                await warm_up()
             await asyncio.sleep(1)
-
-    warmed = 0  # generation of the last warm-up attempt
-
-    async def warm_up() -> None:
-        nonlocal warmed
-        warmed = router.generation
-        try:
-            await router.warm()
-        except Exception:
-            _log.exception("Model warm-up failed; the first request will try again")
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         background: list[asyncio.Task] = []
         try:
-            if config.get("warm") if config else warm:
-                # In the background: only downloaded weights load; /health must answer meanwhile.
-                background.append(asyncio.create_task(warm_up()))
-            if config or check_hours > 0:
-                background.append(asyncio.create_task(check_forever()))
             if config:
                 background.append(asyncio.create_task(sync_forever()))
             yield
@@ -289,12 +236,12 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        return {"status": "ok", "model": router.default, "ready": router.ready, "models": list(router.catalog), "num_thread": threads}
+        return {"status": "ok", "ready": router.ready, "models": list(router.catalog), "num_thread": threads}
 
     @app.get("/v1/models", dependencies=[Depends(authorize)])
     async def models() -> list[dict[str, Any]]:
         return [{"name": e.name, "title": e.title, "engine": e.engine, "capabilities": sorted(e.capabilities),
-                 "quant": router.quant_of(e), "default": e.name == router.default} for e in router.catalog.values()]
+                 "quant": router.quant_of(e)} for e in router.catalog.values()]
 
     def build(reply: dict[str, Any], started: float) -> dict[str, Any]:
         calls = [{"id": call.get("id") or f"call_{index}", "name": call["function"]["name"],
@@ -435,7 +382,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             live = await asyncio.to_thread(builds.cached_sizes, sizes_file, entry.repo, fetch_sizes, time.time())
             current = router.quant_of(entry)
             rows.append({"name": entry.name, "title": entry.title, "engine": entry.engine, "capabilities": sorted(entry.capabilities),
-                         "default": entry.name == router.default, "current_quant": current,
+                         "current_quant": current,
                          "builds": builds.listing(entry, hw, current, have, live)})
         return probed.get(True), rows
 
@@ -486,23 +433,6 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             return int(value) if value.isdigit() else None
 
         return {"replicas": number("SERVICE_REPLICAS"), "ollama_parallel": router.parallel}
-
-    @app.get("/admin/updates", dependencies=[Depends(admin)])
-    async def update_status() -> dict[str, Any]:
-        """Return the last check without I/O; zero check hours disables only the timer."""
-        return {"enabled": True, **updates.status()}
-
-    @app.post("/admin/updates/check", dependencies=[Depends(admin)])
-    async def check_updates() -> dict[str, Any]:
-        return {"enabled": True, **await updates.check()}
-
-    @app.post("/admin/updates/weights", dependencies=[Depends(admin)])
-    async def update_weights() -> dict[str, Any]:
-        try:
-            return {"enabled": True, **await updates.update_weights()}
-        except Exception as error:
-            _log.exception("Weight update failed")
-            raise HTTPException(502, f"Weight update failed: {error}") from None
 
     @app.get("/admin/tokens", dependencies=[Depends(admin)])
     def list_tokens() -> dict[str, Any]:

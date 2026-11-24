@@ -8,11 +8,11 @@ First start: open `/admin/` → **Models and builds** → **Download** on a buil
 
 | Call | Purpose |
 |---|---|
-| `POST /v1/chat` | `messages`, optional `model`, `temperature`, `max_tokens`, `stream`, `tools`; returns `content`, `tool_calls`, `finish_reason`, `model`, `quant`, `usage`, `duration_ms`. |
+| `POST /v1/chat` | `messages`, `model`, optional `temperature`, `max_tokens`, `stream`, `tools`; returns `content`, `tool_calls`, `finish_reason`, `model`, `quant`, `usage`, `duration_ms`. |
 | `GET /v1/models` | Each model's `name`, `title`, `engine`, `capabilities`, current `quant`, `default`. Token required when auth is on. |
-| `GET /health` | `status`, `model` (the default), `ready`, `models`, `num_thread`; no token required. |
+| `GET /health` | `status`, `ready` (some model is loaded), `models`, `num_thread`; no token required. |
 
-`model` is a catalog name (`lfm3`, `sparkx26`, `minicpm52b`, `bitnet2b`); without it the **Default model** setting applies. An unknown name is 404. `tools` on a model without the `tools` capability, and `schema`, `project` or `thinking` in any request, are 422. Thinking is an admin setting. Messages, limits, streaming (NDJSON `content` lines then `done`), cache (`X-Cache`, temperature 0 only; the key includes model and quant) and tokens work as in the old services.
+`model` is required and is a catalog name (`lfm3`, `sparkx26`, `minicpm52b`, `bitnet2b`); there is no default model. A missing `model` is 422, an unknown name 404. `tools` on a model without the `tools` capability, and `schema`, `project` or `thinking` in any request, are 422. Thinking is an admin setting. Messages, limits, streaming (NDJSON `content` lines then `done`), cache (`X-Cache`, temperature 0 only; the key includes model and quant) and tokens work as in the old services.
 
 ## Catalog
 

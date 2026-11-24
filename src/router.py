@@ -13,11 +13,9 @@ from errors import CapabilityError, EngineError, UnknownModel
 class ModelRouter:
     """One loaded model per (model, quant); `parallel` generations run at once across all models."""
 
-    def __init__(self, catalog: dict[str, ModelEntry], adapters: dict[str, Any], default: str,
+    def __init__(self, catalog: dict[str, ModelEntry], adapters: dict[str, Any],
                  quants: dict[str, str] | None = None, parallel: int = 1) -> None:
-        if default not in catalog:
-            raise UnknownModel(default)
-        self.catalog, self.adapters, self.default = catalog, adapters, default
+        self.catalog, self.adapters = catalog, adapters
         self.quants = dict(quants or {})
         self._loaded: dict[tuple[str, str], Any] = {}
         self._lock = threading.Lock()
@@ -27,19 +25,15 @@ class ModelRouter:
 
     @property
     def ready(self) -> bool:
-        """The default model is loaded."""
-        return (self.default, self.quant_of(self.catalog[self.default])) in self._loaded
-
-    async def warm(self) -> None:
-        """Load the default model now so the first request does not pay for it."""
-        await asyncio.to_thread(self._model, self.catalog[self.default])
+        """Some model is loaded."""
+        return bool(self._loaded)
 
     async def close(self) -> None:
         self.forget()
 
-    def entry(self, model: str | None) -> ModelEntry:
+    def entry(self, model: str) -> ModelEntry:
         try:
-            return self.catalog[model or self.default]
+            return self.catalog[model]
         except KeyError:
             raise UnknownModel(model) from None
 
@@ -65,7 +59,7 @@ class ModelRouter:
                 self._loaded[entry.name, quant] = self.adapters[entry.engine].load(entry, quant)
             return self._loaded[entry.name, quant], quant
 
-    def _prepare(self, model: str | None, tools: list[dict[str, Any]] | None) -> tuple[ModelEntry, dict[str, Any]]:
+    def _prepare(self, model: str, tools: list[dict[str, Any]] | None) -> tuple[ModelEntry, dict[str, Any]]:
         entry = self.entry(model)
         if tools and "tools" not in entry.capabilities:
             raise CapabilityError(f"{entry.name} does not support tools")
@@ -76,7 +70,7 @@ class ModelRouter:
             with self._lock:
                 self._loaded.pop((entry.name, self.quant_of(entry)), None)
 
-    async def chat(self, model: str | None, messages: list[dict[str, Any]], *, temperature: float, max_tokens: int,
+    async def chat(self, model: str, messages: list[dict[str, Any]], *, temperature: float, max_tokens: int,
                    tools: list[dict[str, Any]] | None = None, timeout: float = 120.0) -> dict[str, Any]:
         entry, extra = self._prepare(model, tools)
         async with self._gate:
@@ -88,7 +82,7 @@ class ModelRouter:
                 raise
         return {**result, "model": entry.name, "quant": quant}
 
-    async def chat_stream(self, model: str | None, messages: list[dict[str, Any]], *, temperature: float, max_tokens: int,
+    async def chat_stream(self, model: str, messages: list[dict[str, Any]], *, temperature: float, max_tokens: int,
                           tools: list[dict[str, Any]] | None = None, timeout: float = 120.0) -> AsyncIterator[tuple[str, Any]]:
         """("content", text) pieces, then ("done", stats with `model` and `quant`). Closing the iterator stops the generation."""
         entry, extra = self._prepare(model, tools)

@@ -16,7 +16,6 @@ from pathlib import Path
 
 from app import create_app
 from conftest import make_router
-from updates import Updates
 from options import SETTINGS
 from settings import Config
 
@@ -25,24 +24,9 @@ PASSWORD = "secret"
 
 @pytest.fixture
 def base_url():
-    state = {"downloaded": False}
-    async def cached():
-        return "new" if state["downloaded"] else "old"
-
-    async def remote():
-        return "new"
-
-    async def download():
-        state["downloaded"] = True
-
-    async def unload():
-        return None
-
-    updates = Updates("m", cached_sha=cached, remote_sha=remote, download=download, unload=unload,
-                      description="Checks without downloading weights.", reload_note="loads the new weights on its next request.")
     config = Config(Path(os.environ["SERVICE_TOKENS_FILE"]).with_name("settings.json"), SETTINGS)
-    config.set({"update_check_hours": 0, "warm": False})
-    app = create_app(make_router(), PASSWORD, config=config, updates=updates, fetch_sizes=lambda url: (_ for _ in ()).throw(OSError()))
+    config.set({"cache_size": 0})
+    app = create_app(make_router(), PASSWORD, config=config, fetch_sizes=lambda url: (_ for _ in ()).throw(OSError()))
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
@@ -98,22 +82,6 @@ def test_health_keeps_backend_specific_model_display(page):
     page.click("#signin-button")
     sync_api.expect(page.locator("#model-value")).to_have_text("Starting")
     sync_api.expect(page.locator("#health-text")).to_have_text("Starting")
-
-
-def test_updates_card_checks_and_downloads_without_replica_restart(page):
-    page.fill("#admin", PASSWORD)
-    page.click("#signin-button")
-    page.click('#admin-nav a[href="#updates"]')
-    sync_api.expect(page.locator("#updates-card")).to_be_visible()
-    sync_api.expect(page.locator("#updates-description")).to_contain_text("without downloading")
-    sync_api.expect(page.locator("#update-note")).to_have_text("Not checked yet.")
-    page.click("#check-updates")
-    sync_api.expect(page.locator("#update-weights")).to_be_visible()
-    sync_api.expect(page.locator("#update-list")).to_contain_text("m")
-    page.click("#update-weights")
-    sync_api.expect(page.locator("#update-note")).to_contain_text("loads the new weights on its next request.")
-    sync_api.expect(page.locator("#update-weights")).to_be_visible()
-    assert "Restart" not in page.locator("#update-note").inner_text()
 
 
 def test_token_project_restrictions_are_refused(page):

@@ -55,7 +55,7 @@ Tokens are enforced only while `SERVICE_ADMIN_PASSWORD` is set.
 
 ## Models and builds
 
-The **Models** card lists every model in `configs/models/` (LFM3, Spark X2.6, MiniCPM5 and BitNet), and under each model its quantized builds. Each row shows the estimated memory it takes (the file size plus a margin; not measured), the download size (the live size from the Hub when it can be read, else the stored size), whether the engine already has it, and whether it would run on the GPU or the CPU (slower). The top line shows what this machine has. A build that fits neither the free GPU memory nor the free RAM is greyed with the reason and cannot be chosen. When the engine runs on another machine its memory cannot be seen, so nothing is blocked and the card says so. **Use** saves the build for that model and every replica applies it within a second. **Download** fetches the weights (Ollama pull or a GGUF file); it is the only place weights are fetched. The build that is already loaded counts as fitting. The default model (used when a request has no `model`) is the **Default model** setting.
+The **Models** card lists every model in `configs/models/` (LFM3, Spark X2.6, MiniCPM5 and BitNet), and under each model its quantized builds. Each row shows the estimated memory it takes (the file size plus a margin; not measured), the download size (the live size from the Hub when it can be read, else the stored size), whether the engine already has it, and whether it would run on the GPU or the CPU (slower). The top line shows what this machine has. A build that fits neither the free GPU memory nor the free RAM is greyed with the reason and cannot be chosen. When the engine runs on another machine its memory cannot be seen, so nothing is blocked and the card says so. **Use** saves the build for that model and every replica applies it within a second. **Download** fetches the weights (Ollama pull or a GGUF file); it is the only place weights are fetched. The build that is already loaded counts as fitting.
 
 ## CPU threads
 
@@ -97,16 +97,16 @@ The shared token UI still has a scope input, but this service refuses any projec
 
 ## Settings
 
-The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: update-check interval, caches and limits, thinking (off/on), hide reasoning, and warm-up (restart). The default model is the **Default model** setting (`SERVICE_DEFAULT_MODEL`). Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
+The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: caches and limits, thinking (off/on) and hide reasoning. Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
 
 ## Updating the model files
 
-The service loads only downloaded weights and tokenizer files. Startup, warm-up and requests never download. With no downloaded model, `/health` and `/admin/` answer, `ready` is false and inference returns 503 with an admin Download hint. First start: open `/admin/` → **Updates** → **Download**. The Updates card compares the downloaded Ollama manifest digest with the online registry manifest at startup, every `update_check_hours` and on **Check now**. Checks fetch metadata only; only **Download** runs `ollama pull`. A successful download invalidates every replica through shared storage; each replica reloads on its next request.
+The service loads only downloaded weights and tokenizer files. Startup and requests never download; there is no warm-up and no default model. With no downloaded model, `/health` and `/admin/` answer, `ready` is false and inference returns 503 with an admin Download hint. First start: open `/admin/` → **Models and builds** → **Download** on a build. Only Download fetches files (`ollama pull`, or a GGUF file for llama.cpp); a successful download makes every replica drop its loaded copy through shared storage and reload on its next request.
 
 Admin curl alternative:
 
 ```bash
-curl -X POST http://127.0.0.1:29204/admin/updates/weights -H "X-Internal-Token: <ADMIN_PASSWORD>"
+curl -X POST http://127.0.0.1:29204/admin/models/lfm3/download -H "X-Internal-Token: <ADMIN_PASSWORD>" -H "Content-Type: application/json" -d '{"quant": "Q4_K_M"}'
 ```
 
 ## Connect to this service
