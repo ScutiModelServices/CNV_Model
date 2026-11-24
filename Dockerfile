@@ -10,6 +10,6 @@ COPY src ./src
 COPY configs ./configs
 COPY web ./web
 
-ENV SERVICE_PORT=29200
-EXPOSE 29200
+ENV SERVICE_PORT=29204
+EXPOSE 29204
 CMD ["python", "src/app.py"]

@@ -1,6 +1,6 @@
 # CNV_Model
 
-Chat models served over HTTP through a JSON catalog and engine adapters, behind the shared model-service admin page, tokens and settings. Port 29200, env prefix `SERVICE_`, token prefix `cnv_`. Replaces `CNV_LFM3_Model`, `CNV_SparkX26_Model`, `CNV_MiniCPM52B_Model`, `CNV_BitNet2B_Model` (design: `AI/ModelServices/_docs/specs/2026-11-24-group-services-design.md`).
+Chat models served over HTTP through a JSON catalog and engine adapters, behind the shared model-service admin page, tokens and settings. Port 29204, env prefix `SERVICE_`, token prefix `cnv_`. Replaces `CNV_LFM3_Model`, `CNV_SparkX26_Model`, `CNV_MiniCPM52B_Model`, `CNV_BitNet2B_Model` (design: `AI/ModelServices/_docs/specs/2026-11-24-group-services-design.md`).
 
 ## Agent instructions
 This file is the one instruction file for every coding agent; `CLAUDE.md` only imports it (`@AGENTS.md`). Edit this file, never `CLAUDE.md`.
@@ -18,7 +18,7 @@ This file is the one instruction file for every coding agent; `CLAUDE.md` only i
 - `web/index.html`, `src/tokens.py`, `src/settings.py`, `src/updates.py` and `.dockerignore` are copies shared with the other model services. Change one, copy it to the others, run `python tools/check_sync.py` in each repo.
 - Builds: each catalog `builds` row is a quantization listed under its model; `src/builds.py` adds the memory estimate, the fit check (`src/hardware.py`) and live Hub sizes (cached in `hub-sizes.json` in the data volume; offline falls back to the stored size). The chosen build per model is the saved `quants` setting; the default model is the `default_model` setting. Only `POST /admin/models/{name}/download` (and the Updates card for the default model) fetches weights.
 - `POST /v1/chat` takes `model`; `tools` need the model's `tools` capability (else 422); `schema`, request-level `thinking` and `project` are 422 (not carried over from MiniCPM and BitNet yet). Adapters get `tools=` only when a request has tools.
-- Port 29200 was `CNV_MiniCPM52B_Model`'s: stop it first. Callers still on the old ports are listed in `docs/migration.md`.
+- Port 29204 is the next free port in the CNV band; the four old CNV services keep 29200–29203 until their callers move (`docs/migration.md`).
 - Behaviour changes update `README.md`, `deployment.md`, `docs/guide-web-ui.md`, `.env.example` and `CHANGELOG.md` in the same commit.
 - Never read or print `.env`, `.env.local`, `.env.compose`, `tokens.json` or `settings.json`.
 - Commit with the noreply author email `214214011+scutiii2@users.noreply.github.com` (another address is rejected on push). Push `main`, then run `python tools/publish_live.py`. Build Docker only when the Dockerfile or the dependencies changed.

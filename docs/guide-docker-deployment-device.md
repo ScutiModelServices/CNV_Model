@@ -36,7 +36,7 @@ cd /media/ZimaOS-HD/Apps/ModelServices/CNV_Model
 Create `.env` (deploy option 2 copies yours, or `cp .env.example .env` and edit):
 - `SERVICE_ADMIN_PASSWORD`: a real password.
 - `SERVICE_REPLICAS=1` initially. Set `SERVICE_OLLAMA_URL` to the reachable Ollama and pull the configured model there first.
-- `SERVICE_PORT=29200` (published on all interfaces; firewall it if the LAN should not reach it, or bind it to
+- `SERVICE_PORT=29204` (published on all interfaces; firewall it if the LAN should not reach it, or bind it to
   `127.0.0.1` in the `ports:` line of `cnv_model_lb` when only callers on the machine need it).
 
 ## 3. Start
@@ -44,20 +44,20 @@ Create `.env` (deploy option 2 copies yours, or `cp .env.example .env` and edit)
 ```bash
 docker compose up -d --build
 docker compose ps
-curl http://127.0.0.1:29200/health
+curl http://127.0.0.1:29204/health
 ```
 Warm-up runs in the background. `/health` and the admin page answer even if Ollama is unavailable; chat returns 503 until the configured model can load.
 
 ## 4. Connect callers
 
-1. Open `http://<machine-ip>:29200/admin/`, sign in with the admin password and create one token per caller
+1. Open `http://<machine-ip>:29204/admin/`, sign in with the admin password and create one token per caller
    (see [guide-web-ui.md](guide-web-ui.md)).
 2. The caller holds the URL and token:
-   - Caller on another machine: `http://<machine-ip>:29200`.
-   - Caller in a Docker stack on the same machine: `http://host.docker.internal:29200`.
+   - Caller on another machine: `http://<machine-ip>:29204`.
+   - Caller in a Docker stack on the same machine: `http://host.docker.internal:29204`.
 3. Try a call from the machine:
    ```bash
-   curl -X POST http://127.0.0.1:29200/v1/chat -H "Content-Type: application/json" -H "X-Internal-Token: lfm3_..." -d '{"messages":[{"role":"user","content":"Say hello in one sentence."}]}'
+   curl -X POST http://127.0.0.1:29204/v1/chat -H "Content-Type: application/json" -H "X-Internal-Token: lfm3_..." -d '{"messages":[{"role":"user","content":"Say hello in one sentence."}]}'
    ```
 
 ## Scaling
@@ -88,7 +88,7 @@ A plain publish (`run.bat`, Deploy, option 1) only updates the `live` branch. Fo
 
 | Symptom | Fix |
 |---|---|
-| Caller cannot reach the service | Check the caller's URL and token, and that `curl http://<machine-ip>:29200/health` works. |
+| Caller cannot reach the service | Check the caller's URL and token, and that `curl http://<machine-ip>:29204/health` works. |
 | nginx 502 after an update | `docker compose restart cnv_model_lb`. |
 | Permission denied on push | run.bat Deploy option 6. |
-| Port 29200 in use | Another stack on the machine already publishes it. |
+| Port 29204 in use | Another stack on the machine already publishes it. |

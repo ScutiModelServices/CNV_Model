@@ -1,5 +1,5 @@
 @echo off
-REM Starts the CNV_Model service on port 29200 (syncs .venv with uv on each run).
+REM Starts the CNV_Model service on port 29204 (syncs .venv with uv on each run).
 REM LABEL: CNV Service
 REM DESCRIPTION: HTTP chat through Ollama. Local run needs running Ollama with the model pulled.
 cd /d "%~dp0"

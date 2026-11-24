@@ -2,14 +2,14 @@
 
 First start: open `/admin/` → **Updates** → **Download**; see [the web UI guide](guide-web-ui.md#updating-the-model-files). Startup and requests load downloaded files only; an empty installation keeps health/admin available and returns 503 for inference.
 
-Calls LFM3 with PowerShell only, no admin page. Port 29200. Replace `<...>` values. The commands were written from the code and not yet run against a live server.
+Calls LFM3 with PowerShell only, no admin page. Port 29204. Replace `<...>` values. The commands were written from the code and not yet run against a live server.
 
 ## Get a token
 
 Every call except `/health` needs a token while `SERVICE_ADMIN_PASSWORD` is set. Admin calls take the admin password itself; a token works only on `/v1/*`. Create one token and reuse it. Each `POST /admin/tokens` call makes a new one, so do not put it in a loop. Revoke extras on the admin page.
 
 ```powershell
-$base = "http://127.0.0.1:29200"
+$base = "http://127.0.0.1:29204"
 $pw   = @{ "X-Internal-Token" = "<SERVICE_ADMIN_PASSWORD>" }
 $tok  = (Invoke-RestMethod -Method Post -Uri "$base/admin/tokens" -Headers $pw -ContentType "application/json" -Body '{"name":"cli-test"}').token
 $tok

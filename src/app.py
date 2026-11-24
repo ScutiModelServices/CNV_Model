@@ -573,7 +573,7 @@ def main() -> None:
     router = build_router(store, config)
     app = create_app(router=router, admin_password=os.environ.get("SERVICE_ADMIN_PASSWORD") or None,
                      tokens=store, config=config)
-    host, port = os.environ.get("SERVICE_HOST", "127.0.0.1"), int(os.environ.get("SERVICE_PORT", "29200"))
+    host, port = os.environ.get("SERVICE_HOST", "127.0.0.1"), int(os.environ.get("SERVICE_PORT", "29204"))
 
     class Server(uvicorn.Server):
         async def startup(self, sockets=None):

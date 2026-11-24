@@ -26,7 +26,7 @@ services:
     deploy:
       replicas: ${SERVICE_REPLICAS:-1}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:29200/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:29204/health')"]
       interval: 15s
       timeout: 5s
       start_period: 300s
@@ -45,7 +45,7 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "${SERVICE_BIND:-0.0.0.0}:${SERVICE_PORT:-29200}:29200"
+      - "${SERVICE_BIND:-0.0.0.0}:${SERVICE_PORT:-29204}:29204"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -62,7 +62,7 @@ volumes:
   cnv_model_files:
     name: cnv_model_files
 networks:
-  # Other stacks reach http://cnv_model_lb:29200 by joining this network.
+  # Other stacks reach http://cnv_model_lb:29204 by joining this network.
   cnv_model:
     name: cnv_model
   citadel:

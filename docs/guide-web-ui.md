@@ -4,8 +4,8 @@ The admin UI at `/admin/` has separate sidebar pages for health, access and mode
 
 | Run | Address |
 |---|---|
-| Docker or `run.bat` on this PC | `http://127.0.0.1:29200/admin/` |
-| Docker on the deployment box | `http://<box-ip>:29200/admin/` |
+| Docker or `run.bat` on this PC | `http://127.0.0.1:29204/admin/` |
+| Docker on the deployment box | `http://<box-ip>:29204/admin/` |
 
 If `SERVICE_PORT` is changed, use that port.
 
@@ -81,7 +81,7 @@ docker compose restart cnv_model_lb
 | `Admin password required (set SERVICE_ADMIN_PASSWORD)` | The password is empty. Set it and restart. |
 | Token lost | Revoke it and create a new one. |
 | `/health` shows `ready: false` | The model is still loading in Ollama, Ollama is unavailable, or the model has not been pulled (see the container logs). |
-| Never expose port 29200 to the internet | It is a LAN tool; use a firewall or VPN for remote access. |
+| Never expose port 29204 to the internet | It is a LAN tool; use a firewall or VPN for remote access. |
 
 ## Legacy token scopes
 
@@ -106,7 +106,7 @@ The service loads only downloaded weights and tokenizer files. Startup, warm-up 
 Admin curl alternative:
 
 ```bash
-curl -X POST http://127.0.0.1:29200/admin/updates/weights -H "X-Internal-Token: <ADMIN_PASSWORD>"
+curl -X POST http://127.0.0.1:29204/admin/updates/weights -H "X-Internal-Token: <ADMIN_PASSWORD>"
 ```
 
 ## Connect to this service

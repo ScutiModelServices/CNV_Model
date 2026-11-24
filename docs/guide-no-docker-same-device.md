@@ -2,7 +2,7 @@
 
 First start: open `/admin/` → **Updates** → **Download**; see [the web UI guide](guide-web-ui.md#updating-the-model-files). Startup and requests load downloaded files only; an empty installation keeps health/admin available and returns 503 for inference.
 
-Run the API directly on `127.0.0.1:29200`, with inference in a running Ollama.
+Run the API directly on `127.0.0.1:29204`, with inference in a running Ollama.
 
 ## Requirements
 
@@ -12,7 +12,7 @@ Run the API directly on `127.0.0.1:29200`, with inference in a running Ollama.
 ## Start
 
 ```bash
-curl -X POST http://127.0.0.1:29200/admin/updates/weights -H "X-Internal-Token: <ADMIN_PASSWORD>"
+curl -X POST http://127.0.0.1:29204/admin/updates/weights -H "X-Internal-Token: <ADMIN_PASSWORD>"
 ```
 
 Use `run.bat run`, or choose Run from its menu. It syncs `.venv` and starts `python src/app.py --dotenv`. Copy `.env.example` to `.env.local` only if needed, change `SERVICE_OLLAMA_URL` to `http://127.0.0.1:11434`, and set an admin password. When the URL is unset, the local default is `http://127.0.0.1:11434`; explicitly empty is an error.
@@ -28,10 +28,10 @@ uv run python src/app.py
 ## Check
 
 ```bash
-curl http://127.0.0.1:29200/health
+curl http://127.0.0.1:29204/health
 ```
 
-The API starts even when Ollama is down. `ready` stays false and chat returns 503 with a admin Updates Download hint. Open `http://127.0.0.1:29200/admin/` and create a token.
+The API starts even when Ollama is down. `ready` stays false and chat returns 503 with a admin Updates Download hint. Open `http://127.0.0.1:29204/admin/` and create a token.
 
 ## Stop
 
