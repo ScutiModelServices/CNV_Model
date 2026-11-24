@@ -10,7 +10,7 @@ SETTINGS = [
     Setting("ollama_url", "Ollama server address", "text", "http://127.0.0.1:11434", "SERVICE_OLLAMA_URL", blank=False,
             help="Where the ollama models run, for example http://host.docker.internal:11434. Applies within a second; loaded models are dropped"),
     Setting("models_dir", "Folder of GGUF files", "text", "models", "SERVICE_MODELS_DIR", blank=False,
-            help="The llama.cpp models' files, shared with their sidecars. Applies within a second; loaded models are dropped"),
+            help="Where the llama.cpp models' GGUF files are downloaded to and read from. In Docker it is /models; set the host folder with SERVICE_MODELS_PATH in compose. Ollama models are stored by the Ollama server, not here. Applies within a second; loaded models are dropped"),
     Setting("ollama_parallel", "Generations at once per replica", "int", 2, "SERVICE_OLLAMA_PARALLEL", 1, 64,
             help="Set it to the OLLAMA_NUM_PARALLEL of your Ollama. Applies within a second"),
     Setting("thinking", "Thinking", "text", "off", "SERVICE_THINKING", blank=False,

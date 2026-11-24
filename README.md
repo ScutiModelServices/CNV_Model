@@ -23,7 +23,7 @@ One JSON file per model in `configs/models/`; see [configs/README.md](configs/RE
 | Engine | Models | Where it runs |
 |---|---|---|
 | `ollama` | `lfm3`, `sparkx26`, `minicpm52b` | An Ollama server; its address is the **Ollama server address** setting. Download is `ollama pull`. |
-| `llamacpp` | `bitnet2b` | The bitnet.cpp `llama-server` sidecar (`sidecars/bitnet/`), at the `url` in `configs/models/bitnet2b.json`. Weights are GGUF files in `SERVICE_MODELS_DIR`, shared with the sidecar. |
+| `llamacpp` | `bitnet2b` | The bitnet.cpp `llama-server` sidecar (`sidecars/bitnet/`), at the `url` in `configs/models/bitnet2b.json`. Weights are GGUF files in the **GGUF folder** setting (`/models` in Docker; the host folder is `SERVICE_MODELS_PATH` in compose), shared with the sidecar. Ollama models are stored by the Ollama server. |
 
 ## Run
 

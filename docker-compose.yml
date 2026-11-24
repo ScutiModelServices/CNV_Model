@@ -20,7 +20,7 @@ services:
     extra_hosts: ["host.docker.internal:host-gateway"]  # reaches an Ollama running on the host
     volumes:
       - cnv_model_data:/data
-      - cnv_model_files:/models
+      - ${SERVICE_MODELS_PATH:-cnv_model_files}:/models  # a host folder (bind mount) when SERVICE_MODELS_PATH is set, else the named volume
     deploy:
       replicas: ${SERVICE_REPLICAS:-1}
     healthcheck:
@@ -35,7 +35,7 @@ services:
     image: cnv_bitnet_server:latest
     restart: unless-stopped
     volumes:
-      - cnv_model_files:/models:ro
+      - ${SERVICE_MODELS_PATH:-cnv_model_files}:/models:ro
     networks: [cnv_model]
 
   cnv_model_lb:
