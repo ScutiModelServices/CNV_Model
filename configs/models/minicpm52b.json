@@ -1,0 +1,9 @@
+{
+  "name": "minicpm52b", "title": "MiniCPM5 2B", "engine": "ollama", "repo": "openbmb/MiniCPM5-2B-GGUF",
+  "default_quant": "Q4_K_M", "capabilities": ["tools", "thinking"],
+  "builds": [
+    {"quant": "Q4_K_M", "file_mb": 1488, "note": "The usual choice: small, little quality loss."},
+    {"quant": "Q8_0", "file_mb": 2555, "note": "Almost the original."},
+    {"quant": "F16", "file_mb": 4805, "note": "The original precision: largest, no quantization loss."}
+  ]
+}

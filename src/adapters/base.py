@@ -1,0 +1,23 @@
+"""What the router needs from an engine: load a model build, list and fetch weights."""
+
+from __future__ import annotations
+
+from typing import Any, Iterator, Protocol
+
+from catalog import ModelEntry
+
+
+class Loaded(Protocol):
+    def generate(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float, **tools: Any) -> dict[str, Any]: ...
+    def stream(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float, stop: Any, **tools: Any) -> Iterator[tuple[str, Any]]: ...
+
+
+class EngineAdapter(Protocol):
+    name: str
+    same_machine: bool
+
+    def load(self, entry: ModelEntry, quant: str) -> Loaded: ...
+    def downloaded(self) -> set[str]: ...
+    def download(self, entry: ModelEntry, quant: str) -> None: ...
+    def local_ref(self, entry: ModelEntry, quant: str) -> str | None: ...
+    def remote_ref(self, entry: ModelEntry, quant: str) -> str: ...
