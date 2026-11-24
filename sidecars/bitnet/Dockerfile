@@ -14,4 +14,7 @@ COPY --from=cpp /bitnet/build/bin/llama-server /usr/local/bin/llama-server
 # The GGUF carries no chat template: this one is the template of microsoft/bitnet-b1.58-2B-4T (`Role: text<|eot_id|>` ... `Assistant: `).
 COPY bitnet.jinja /etc/bitnet.jinja
 # One server, one model: the file the catalog's `bitnet2b` points at (shared /models volume, filled by the admin Download button).
-ENTRYPOINT ["llama-server", "--host", "0.0.0.0", "--port", "8080", "-c", "4096", "-np", "1", "--special", "--jinja", "--chat-template-file", "/etc/bitnet.jinja", "-m", "/models/microsoft/BitNet-b1.58-2B-4T-gguf/ggml-model-i2_s.gguf"]
+# The entrypoint waits until that file exists, so the container does not restart in a loop before the first download.
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
