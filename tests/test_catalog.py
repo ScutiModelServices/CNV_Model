@@ -27,6 +27,19 @@ def test_rejects_bad_entry(tmp_path, over):
         load_catalog(tmp_path)
 
 
+def test_url_only_for_llamacpp_and_required_there(tmp_path):
+    write(tmp_path, "a", url="http://x:1")
+    with pytest.raises(CatalogError):
+        load_catalog(tmp_path)
+    (tmp_path / "a.json").unlink()
+    write(tmp_path, "b", engine="llamacpp", builds=[{"quant": "Q4_K_M", "file_mb": 1, "ref": "b.gguf"}])
+    with pytest.raises(CatalogError):
+        load_catalog(tmp_path)
+    (tmp_path / "b.json").unlink()
+    write(tmp_path, "c", engine="llamacpp", url="http://x:1", builds=[{"quant": "Q4_K_M", "file_mb": 1, "ref": "c.gguf"}])
+    assert load_catalog(tmp_path)["c"].url == "http://x:1"
+
+
 def test_name_must_match_file(tmp_path):
     write(tmp_path, "a")
     (tmp_path / "a.json").rename(tmp_path / "b.json")

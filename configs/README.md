@@ -6,7 +6,8 @@
 |---|---|
 | `name` | The value of the `model` field in `POST /v1/chat`. |
 | `title` | The label on the admin page. |
-| `engine` | `ollama` (the Ollama server, `SERVICE_OLLAMA_URL`) or `llamacpp` (a `llama-server` sidecar, `SERVICE_LLAMACPP_URL`). |
+| `engine` | `ollama` (the Ollama server, `SERVICE_OLLAMA_URL`) or `llamacpp` (a `llama-server` sidecar that holds this model's GGUF; needs `url`). |
+| `url` | `llamacpp` only: the sidecar's address, for example `http://cnv_bitnet_server:8080`. One sidecar serves one model, so every `llamacpp` model has its own. Not allowed for `ollama`. |
 | `repo` | HuggingFace repository of the GGUF files. |
 | `default_quant` | The build used until an admin picks another. Must be one of `builds`. |
 | `capabilities` | Any of `tools`, `thinking`, `schema`, `project`. A request that uses one the model lacks gets 422. |

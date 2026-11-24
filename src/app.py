@@ -120,8 +120,7 @@ def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRou
 
     adapters = {
         "ollama": OllamaAdapter(os.environ.get("SERVICE_OLLAMA_URL", "http://127.0.0.1:11434"), live=live if config else None),
-        "llamacpp": LlamaCppAdapter(os.environ.get("SERVICE_LLAMACPP_URL", "http://127.0.0.1:8080"),
-                                    Path(os.environ.get("SERVICE_MODELS_DIR", "models"))),
+        "llamacpp": LlamaCppAdapter(Path(os.environ.get("SERVICE_MODELS_DIR", "models"))),
     }
     saved = settings.load(tokens.settings_path).get("quants") or {}
     quants = {name: quant for name, quant in saved.items() if name in catalog and any(b.quant == quant for b in catalog[name].builds)}

@@ -1,5 +1,6 @@
 {
   "name": "bitnet2b", "title": "BitNet b1.58 2B4T", "engine": "llamacpp", "repo": "microsoft/BitNet-b1.58-2B-4T-gguf",
+  "url": "http://cnv_bitnet_server:8080",
   "default_quant": "i2_s", "capabilities": [],
   "builds": [
     {"quant": "i2_s", "file_mb": 1200, "ref": "ggml-model-i2_s.gguf", "note": "The only build bitnet.cpp reads: ternary weights, CPU kernels."}

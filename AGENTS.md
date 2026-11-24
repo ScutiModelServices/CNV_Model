@@ -12,7 +12,7 @@ This file is the one instruction file for every coding agent; `CLAUDE.md` only i
 
 ## Rules
 - Load downloaded weights only; no startup, warm-up or request downloads. Only the admin per-build Download downloads, then replica markers invalidate old weights. Missing files keep health/admin available and inference returns 503 with an admin Download hint.
-- Models are catalog files, not code: `configs/models/<name>.json` (`src/catalog.py`). Engines are adapters in `src/adapters/` (`ollama`, `llamacpp`) behind `src/router.py`; a new engine is a new adapter plus an entry in `ENGINES`. Keep injected fake adapters for tests (`tests/conftest.py`).
+- Models are catalog files, not code: `configs/models/<name>.json` (`src/catalog.py`). Engines are adapters in `src/adapters/` (`ollama`, `llamacpp`) behind `src/router.py`; a new engine is a new adapter plus an entry in `ENGINES`. A `llamacpp` model names its own sidecar in `url` (one `llama-server` holds one GGUF); there is no global llama.cpp URL. Keep injected fake adapters for tests (`tests/conftest.py`).
 - `num_thread` is saved and reported only; Ollama chooses its threads. A 503 from an engine drops that loaded model; the next request loads it again.
 - Follow the `model-service-parity` skill and `AI/ModelServices/_docs/SHARED-FEATURES.md` (what must match in every model service) and `AI/ModelServices/_docs/SERVICE-SPECIFIC.md` (what differs on purpose). A change to a shared feature goes to every service; a new difference goes into `SERVICE-SPECIFIC.md` in the same change.
 - `web/index.html`, `src/tokens.py`, `src/settings.py`, `src/updates.py` and `.dockerignore` are copies shared with the other model services. Change one, copy it to the others, run `python tools/check_sync.py` in each repo.

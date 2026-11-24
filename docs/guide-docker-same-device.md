@@ -20,7 +20,6 @@ Copy `.env.example` to `.env.compose`; saved admin settings take precedence over
 | `SERVICE_ADMIN_PASSWORD` | empty | Enables authenticated public calls and admin access. |
 | `SERVICE_PORT` | `29204` | Published load-balancer port. |
 | `SERVICE_OLLAMA_URL` | `http://host.docker.internal:11434` | Required Ollama address; explicitly empty values fail startup. |
-| `SERVICE_LLAMACPP_URL` | `http://cnv_bitnet_server:8080` | The bitnet.cpp sidecar (the `bitnet2b` model). |
 | `SERVICE_OLLAMA_PARALLEL` | `2` | Generations one replica runs at once; set it to the `OLLAMA_NUM_PARALLEL` of your Ollama. |
 | `SERVICE_REPLICAS` | `1` | API replicas sharing Ollama. |
 | `SERVICE_MEM_LIMIT` | `0` | Optional API container memory cap; does not cap Ollama. |

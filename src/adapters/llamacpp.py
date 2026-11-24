@@ -1,7 +1,7 @@
 """llama.cpp adapter: a `llama-server` sidecar answers OpenAI-style chat; weights are GGUF files in a shared folder.
 
-The sidecar loads one GGUF (`--model <models_dir>/<repo>/<ref>`), so one URL serves the one model that points at it.
-shortcut: one sidecar URL for all `llamacpp` models; add a url field to the catalog when a second one is needed."""
+A sidecar loads one GGUF (`--model <models_dir>/<repo>/<ref>`), so each `llamacpp` model names its own server in the
+catalog (`url`)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Iterator
-from urllib.parse import urlparse
 
 from catalog import ModelEntry
 from errors import EngineError
@@ -20,14 +19,14 @@ HUB = "https://huggingface.co"
 
 
 class _Loaded:
-    def __init__(self, adapter: "LlamaCppAdapter", model: str) -> None:
-        self._adapter, self._model = adapter, model
+    def __init__(self, adapter: "LlamaCppAdapter", model: str, url: str) -> None:
+        self._adapter, self._model, self._url = adapter, model, url
 
     def _body(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, stream: bool) -> dict[str, Any]:
         return {"model": self._model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens, "stream": stream}
 
     def generate(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float) -> dict[str, Any]:
-        reply = self._adapter._post("/v1/chat/completions", self._body(messages, temperature, max_tokens, False), max_time)
+        reply = self._adapter._post(self._url, "/v1/chat/completions", self._body(messages, temperature, max_tokens, False), max_time)
         try:
             choice, usage = reply["choices"][0], reply.get("usage", {})
             return {"content": choice["message"]["content"].strip(), "prompt_tokens": usage.get("prompt_tokens", 0),
@@ -39,7 +38,7 @@ class _Loaded:
     def stream(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float, stop: Any) -> Iterator[tuple[str, Any]]:
         finish, usage = "stop", {}
         try:
-            with self._adapter._open("/v1/chat/completions", self._body(messages, temperature, max_tokens, True), max_time) as response:
+            with self._adapter._open(self._url, "/v1/chat/completions", self._body(messages, temperature, max_tokens, True), max_time) as response:
                 for raw in response:
                     if stop.is_set():
                         return
@@ -62,16 +61,16 @@ class _Loaded:
 
 
 class LlamaCppAdapter:
-    """One `llama-server` for every `engine: llamacpp` model."""
+    """The `llama-server` sidecars of the `engine: llamacpp` models; GGUF files live in one folder shared with them."""
 
     name = "llamacpp"
 
-    def __init__(self, url: str, models_dir: Path) -> None:
-        self.url, self.models_dir = url.strip().rstrip("/"), Path(models_dir)
-        self.same_machine = urlparse(self.url).hostname in ("127.0.0.1", "localhost", "::1", "host.docker.internal")
+    def __init__(self, models_dir: Path) -> None:
+        self.models_dir = Path(models_dir)
+        self.same_machine = True  # the sidecars share this folder, so they run beside this service
 
-    def _open(self, path: str, body: dict[str, Any], timeout: float):
-        request = urllib.request.Request(f"{self.url}{path}", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    def _open(self, url: str, path: str, body: dict[str, Any], timeout: float):
+        request = urllib.request.Request(f"{url}{path}", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
         try:
             return urllib.request.urlopen(request, timeout=timeout)
         except urllib.error.HTTPError as error:
@@ -79,9 +78,9 @@ class LlamaCppAdapter:
         except OSError:
             raise EngineError(UNAVAILABLE, 503) from None
 
-    def _post(self, path: str, body: dict[str, Any], timeout: float) -> dict[str, Any]:
+    def _post(self, url: str, path: str, body: dict[str, Any], timeout: float) -> dict[str, Any]:
         try:
-            with self._open(path, body, timeout) as response:
+            with self._open(url, path, body, timeout) as response:
                 reply = json.load(response)
         except (OSError, ValueError):
             raise EngineError(UNAVAILABLE, 503) from None
@@ -92,7 +91,7 @@ class LlamaCppAdapter:
     def load(self, entry: ModelEntry, quant: str) -> _Loaded:
         if not (self.models_dir / entry.source(quant)).is_file():
             raise EngineError(UNAVAILABLE, 503)
-        return _Loaded(self, entry.source(quant))
+        return _Loaded(self, entry.source(quant), entry.url)
 
     def downloaded(self) -> set[str]:
         return {path.relative_to(self.models_dir).as_posix() for path in self.models_dir.rglob("*.gguf")} if self.models_dir.is_dir() else set()

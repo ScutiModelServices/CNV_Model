@@ -31,6 +31,7 @@ class ModelEntry:
     default_quant: str
     capabilities: frozenset[str]
     builds: tuple[Build, ...]
+    url: str = ""  # llamacpp only: the llama-server that holds this model's GGUF
 
     def build(self, quant: str) -> Build:
         for item in self.builds:
@@ -49,13 +50,15 @@ def _entry(path: Path) -> ModelEntry:
         raw = json.loads(path.read_text("utf-8"))
         builds = tuple(Build(b["quant"], int(b["file_mb"]), b.get("note", ""), b.get("ref", "")) for b in raw["builds"])
         entry = ModelEntry(raw["name"], raw["title"], raw["engine"], raw["repo"], raw["default_quant"],
-                           frozenset(raw.get("capabilities", [])), builds)
+                           frozenset(raw.get("capabilities", [])), builds, raw.get("url", ""))
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise CatalogError(f"{path.name}: {error}") from error
     if entry.name != path.stem:
         raise CatalogError(f"{path.name}: name '{entry.name}' must equal the file name")
     if entry.engine not in ENGINES:
         raise CatalogError(f"{path.name}: unknown engine '{entry.engine}'")
+    if (entry.engine == "llamacpp") != bool(entry.url):
+        raise CatalogError(f"{path.name}: `url` is required for engine llamacpp and only allowed there")
     if not entry.capabilities <= CAPABILITIES:
         raise CatalogError(f"{path.name}: unknown capability {sorted(entry.capabilities - CAPABILITIES)}")
     if entry.default_quant not in {b.quant for b in builds}:
