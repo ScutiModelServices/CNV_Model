@@ -98,3 +98,20 @@ def test_download_goes_to_the_models_engine():
 def test_health_is_open_and_lists_models():
     body = client(admin_password="pw").get("/health").json()
     assert body["status"] == "ok" and "model" not in body and "bitnet2b" in body["models"]
+
+
+def test_connection_settings_come_from_saved_values_and_are_validated(tmp_path):
+    from pathlib import Path
+    from app import build_router
+    from options import SETTINGS
+    from settings import Config
+
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    config = Config(Path(store.settings_path), SETTINGS)
+    config.set({"ollama_url": "http://box:11434", "models_dir": str(tmp_path / "gguf"), "ollama_parallel": 3})
+    router = build_router(store, config)
+    assert router.adapters["ollama"].url == "http://box:11434" and router.parallel == 3
+    assert router.adapters["llamacpp"].models_dir == tmp_path / "gguf"
+    c = TestClient(create_app(router, "pw", tokens=store, config=config, fetch_sizes=no_hub))
+    assert c.put("/admin/settings", json={"values": {"ollama_url": "box:11434"}}, headers=ADMIN).status_code == 422
+    assert c.put("/admin/settings", json={"values": {"ollama_url": "http://other:11434"}}, headers=ADMIN).status_code == 200

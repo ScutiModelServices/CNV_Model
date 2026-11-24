@@ -31,6 +31,11 @@ class ModelRouter:
     async def close(self) -> None:
         self.forget()
 
+    def set_parallel(self, count: int) -> None:
+        """Generations still running keep the old gate; new ones use the new one."""
+        self.parallel = max(1, int(count))
+        self._gate = asyncio.Semaphore(self.parallel)
+
     def entry(self, model: str) -> ModelEntry:
         try:
             return self.catalog[model]

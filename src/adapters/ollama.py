@@ -139,11 +139,14 @@ class OllamaAdapter:
     name = "ollama"
 
     def __init__(self, url: str = DEFAULT_URL, live: Callable[[], tuple[bool, bool]] | None = None) -> None:
-        self.url = url.strip().rstrip("/")
+        self.url = url.strip().rstrip("/")  # changed live by the admin setting `ollama_url`
         if not self.url:
-            raise ValueError("SERVICE_OLLAMA_URL must not be empty; set an Ollama server URL")
+            raise ValueError("The Ollama server address must not be empty")
         self._live = live
-        self.same_machine = urlparse(self.url).hostname in ("127.0.0.1", "localhost", "::1")
+
+    @property
+    def same_machine(self) -> bool:
+        return urlparse(self.url).hostname in ("127.0.0.1", "localhost", "::1")
 
     def load(self, entry: ModelEntry, quant: str) -> OllamaLoaded:
         return OllamaLoaded(self.url, entry.source(quant), live=self._live)

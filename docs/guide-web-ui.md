@@ -97,7 +97,7 @@ The shared token UI still has a scope input, but this service refuses any projec
 
 ## Settings
 
-The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: caches and limits, thinking (off/on) and hide reasoning. Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
+The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: Ollama address, GGUF folder, parallel generations, caches and limits, thinking (off/on) and hide reasoning. Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
 
 ## Updating the model files
 

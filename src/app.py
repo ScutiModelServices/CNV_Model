@@ -118,16 +118,18 @@ def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRou
     def live() -> tuple[bool, bool]:
         return (str(config.get("thinking")).lower() == "on", bool(config.get("hide_reasoning")))
 
-    adapters = {
-        "ollama": OllamaAdapter(os.environ.get("SERVICE_OLLAMA_URL", "http://127.0.0.1:11434"), live=live if config else None),
-        "llamacpp": LlamaCppAdapter(Path(os.environ.get("SERVICE_MODELS_DIR", "models"))),
-    }
+    def option(key: str) -> Any:
+        """The saved admin value, else the environment variable, else the default (without admin settings: env or default)."""
+        if config:
+            return config.get(key)
+        spec = next(spec for spec in SETTINGS if spec.key == key)
+        return type(spec.default)(os.environ.get(spec.env) or spec.default)
+
+    adapters = {"ollama": OllamaAdapter(option("ollama_url"), live=live if config else None),
+                "llamacpp": LlamaCppAdapter(Path(option("models_dir")))}
     saved = settings.load(tokens.settings_path).get("quants") or {}
     quants = {name: quant for name, quant in saved.items() if name in catalog and any(b.quant == quant for b in catalog[name].builds)}
-    raw = os.environ.get("SERVICE_OLLAMA_PARALLEL", "").strip() or "2"
-    if not raw.isdigit() or int(raw) < 1:
-        raise ValueError("SERVICE_OLLAMA_PARALLEL must be a whole number of 1 or more")
-    return ModelRouter(catalog, adapters, quants, int(raw))
+    return ModelRouter(catalog, adapters, quants, option("ollama_parallel"))
 
 
 def create_app(router: ModelRouter | None = None, admin_password: str | None = None,
@@ -179,6 +181,15 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         while True:
             saved = await asyncio.to_thread(settings.load, tokens.settings_path)
             threads = saved.get("num_thread") or threads
+            ollama, llama = router.adapters["ollama"], router.adapters["llamacpp"]
+            if (url := config.get("ollama_url").strip().rstrip("/")) != ollama.url:
+                ollama.url = url
+                router.forget()
+            if (folder := Path(config.get("models_dir"))) != llama.models_dir:
+                llama.models_dir = folder
+                router.forget()
+            if config.get("ollama_parallel") != router.parallel:
+                router.set_parallel(config.get("ollama_parallel"))
             for name, quant in (saved.get("quants") or {}).items():
                 if name in router.catalog and quant != router.quant_of(router.catalog[name]) and any(b.quant == quant for b in router.catalog[name].builds):
                     router.set_quant(name, quant)
@@ -451,6 +462,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         a second, except options marked `restart`."""
         if config is None:
             raise HTTPException(409, "Settings are fixed in this setup")
+        if (url := body.values.get("ollama_url")) and not str(url).startswith(("http://", "https://")):
+            raise HTTPException(422, "The Ollama server address must start with http:// or https://")
         try:
             config.set(body.values)
         except ValueError as error:

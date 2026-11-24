@@ -73,3 +73,9 @@ def test_stream_ends_with_model_in_done():
         return [event async for event in router.chat_stream("b", [], temperature=0, max_tokens=1)]
     events = run(collect())
     assert events[0] == ("content", "b:A") and events[-1][1]["model"] == "b"
+
+
+def test_set_parallel_replaces_the_gate():
+    router, _ = make()
+    router.set_parallel(3)
+    assert router.parallel == 3 and router._gate._value == 3
