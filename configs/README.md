@@ -1,0 +1,25 @@
+# configs
+
+`models/<name>.json` is one chat model. The file name must equal `name`. The service reads the folder at start; restart after a change.
+
+| Field | Meaning |
+|---|---|
+| `name` | The value of the `model` field in `POST /v1/chat`. |
+| `title` | The label on the admin page. |
+| `repo` | HuggingFace repository of the GGUF files. |
+| `default_quant` | The build used until the user picks another. Must be one of `builds`. |
+| `capabilities` | Any of `tools`, `thinking`, `schema`, `project`. A request that uses one the model lacks gets 422. |
+| `builds` | The builds listed under the model on the admin page, original or quantized: `quant`, `file_mb` (stored size, replaced by the live Hub size on refresh), `note`, and `engines`. |
+
+`engines` is an object per build: each key is an engine that can run that build, with the options that engine needs. The catalog only lists them; the user picks which one runs (admin page, or `engine` in a request). The first one listed is used until the user picks.
+
+| Engine | Options | Runs |
+|---|---|---|
+| `ollama` | none (`{}`) | The build through your Ollama server, as `hf.co/<repo>:<quant>`. |
+| `llamacpp` | `ref`: the GGUF file name in `repo`; `url`: the `llama-server` sidecar that holds it, for example `http://cnv_bitnet_server:8080`. One sidecar holds one GGUF. | The file through that sidecar. |
+
+```json
+"builds": [{"quant": "Q4_K_M", "file_mb": 1048, "engines": {"ollama": {}, "llamacpp": {"ref": "m-Q4_K_M.gguf", "url": "http://cnv_m_server:8080"}}}]
+```
+
+To list a new quantization, add a row to `builds`. Weights are downloaded only from the admin page.

@@ -1,0 +1,68 @@
+# CNV_Model API replicas share a running Ollama server (ollama models) and a bitnet.cpp sidecar (bitnet2b).
+# Weights are downloaded from /admin/ -> Models and builds; nothing downloads at start.
+name: cnv_model
+
+services:
+  cnv_model:
+    build: .
+    image: cnv_model:latest
+    restart: unless-stopped
+    mem_limit: ${SERVICE_MEM_LIMIT:-0}  # 0 = no cap; a cap makes an out-of-memory kill stay inside this container
+    environment:
+      SERVICE_ADMIN_PASSWORD: ${SERVICE_ADMIN_PASSWORD:-}
+      SERVICE_NUM_THREAD: ${SERVICE_NUM_THREAD:-}
+      SERVICE_OLLAMA_PARALLEL: ${SERVICE_OLLAMA_PARALLEL:-2}  # same value as OLLAMA_NUM_PARALLEL on your Ollama
+      SERVICE_REPLICAS: ${SERVICE_REPLICAS:-1}  # shown read-only on /admin/
+      SERVICE_OLLAMA_URL: ${SERVICE_OLLAMA_URL-http://host.docker.internal:11434}
+      SERVICE_MODELS_DIR: /models  # GGUF files for the llama.cpp sidecar, shared with it
+      SERVICE_THINKING: ${SERVICE_THINKING:-}  # off (default) or on, Ollama backend
+      SERVICE_HIDE_REASONING: ${SERVICE_HIDE_REASONING:-}  # empty = on
+    extra_hosts: ["host.docker.internal:host-gateway"]  # reaches an Ollama running on the host
+    volumes:
+      - cnv_model_data:/data
+      - ${SERVICE_MODELS_PATH:-cnv_model_files}:/models  # a host folder (bind mount) when SERVICE_MODELS_PATH is set, else the named volume
+    deploy:
+      replicas: ${SERVICE_REPLICAS:-1}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:29204/health')"]
+      interval: 15s
+      timeout: 5s
+      start_period: 300s
+    networks: [cnv_model]
+
+  cnv_bitnet_server:
+    build: ./sidecars/bitnet
+    image: cnv_bitnet_server:latest
+    restart: unless-stopped
+    volumes:
+      - ${SERVICE_MODELS_PATH:-cnv_model_files}:/models:ro
+    networks: [cnv_model]
+
+  cnv_model_lb:
+    container_name: cnv_model_lb
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "${SERVICE_BIND:-0.0.0.0}:${SERVICE_PORT:-29204}:29204"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      cnv_model:
+        condition: service_healthy
+    networks:
+      cnv_model:
+      citadel:
+        aliases: [cnv_model_lb]
+
+volumes:
+  cnv_model_data:
+    name: cnv_model_data
+  cnv_model_files:
+    name: cnv_model_files
+networks:
+  # Other stacks reach http://cnv_model_lb:29204 by joining this network.
+  cnv_model:
+    name: cnv_model
+  citadel:
+    name: citadel_core
+    external: true

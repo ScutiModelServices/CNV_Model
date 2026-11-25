@@ -1,0 +1,52 @@
+{
+  "name": "lfm3",
+  "title": "Liquid LFM3 1.7B",
+  "repo": "LiquidAI/LFM3-1.7B-GGUF",
+  "default_quant": "Q4_K_M",
+  "capabilities": [
+    "tools",
+    "thinking"
+  ],
+  "builds": [
+    {
+      "quant": "Q4_K_M",
+      "file_mb": 1048,
+      "note": "The usual choice: small, little quality loss.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "Q5_K_M",
+      "file_mb": 1200,
+      "note": "A little larger and closer to the original.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "Q6_K",
+      "file_mb": 1361,
+      "note": "Close to the original.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "Q8_0",
+      "file_mb": 1760,
+      "note": "Almost the original.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "F16",
+      "file_mb": 3306,
+      "note": "The original precision: largest, no quantization loss.",
+      "engines": {
+        "ollama": {}
+      }
+    }
+  ]
+}
