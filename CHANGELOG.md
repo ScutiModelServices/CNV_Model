@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Fix: a stopped model refuses requests even when the answer is cached (the cache was checked before the stop).
 - Models card redesigned: one card per model with a state chip (Stopped, Unloaded = takes requests but not in memory, Loaded = in memory) and per-build chips (Selected, Downloaded, Not downloaded, Runs on). The old "Running" button on a build meant only "selected".
 - First release: one chat service for the models of `CNV_LFM3_Model`, `CNV_SparkX26_Model`, `CNV_MiniCPM52B_Model` and `CNV_BitNet2B_Model`, chosen by the `model` field.
 - Catalog in `configs/models/*.json`; engines `ollama` and `llamacpp` (bitnet.cpp sidecar).

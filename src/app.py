@@ -29,7 +29,7 @@ from catalog import load_catalog, with_extras
 from cache import AnswerCache
 from disconnect import CallerGone, Measure, first_piece
 from dataclasses import replace
-from errors import CapabilityError, EngineError, UnknownModel
+from errors import CapabilityError, EngineError, ModelStopped, UnknownModel
 from options import SETTINGS
 from progress import progress
 from router import ModelRouter
@@ -406,6 +406,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             raise HTTPException(404, "Unknown model") from None
         except CapabilityError as error:
             raise HTTPException(422, str(error)) from None
+        if body.model in router.stopped:  # before the cache: a stopped model must not keep answering
+            raise HTTPException(503, str(ModelStopped(body.model)))
         size = cache_limit() if body.temperature == 0 else 0  # a higher temperature asks for a different answer each time
         key = cache_key(body) if size else None
         kept = cache.get(key, size) if key else None
