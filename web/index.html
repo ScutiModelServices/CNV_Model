@@ -185,8 +185,16 @@ dialog input { width: 100%; }
 .m-builds tr[data-selected] { background: color-mix(in srgb, var(--accent) 4%, var(--bg)); }
 .m-builds .m-actions-cell { width: 1%; white-space: nowrap; }
 .m-builds .m-actions-cell .m-actions { flex-wrap: nowrap; }
-.m-quant { white-space: nowrap; color: var(--accent); background: none; border: 0; padding: 2px; min-height: 0; text-align: left; text-decoration: underline; text-underline-offset: 3px; font-weight: 650; border-radius: var(--radius-sm); }
-.m-quant:hover { background: none; text-decoration-thickness: 2px; }
+.m-quant { white-space: nowrap; color: var(--text); background: none; border: 0; padding: 2px; min-height: 0; text-align: left; font-weight: 650; border-radius: var(--radius-sm); }
+.m-quant::after { content: "›"; margin-left: 6px; color: var(--muted); }
+.m-quant:hover { background: none; }
+.m-builds th[scope="row"] { display: flex; align-items: center; gap: 8px; }
+.m-seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; }
+.m-seg button { border: 0; border-radius: 0; min-height: 34px; background: transparent; }
+.m-seg button + button { border-left: 1px solid var(--border); }
+.m-seg button[aria-disabled="true"] { color: var(--muted); cursor: not-allowed; }
+.m-banner { display: flex; gap: 10px; align-items: flex-start; margin: 0 16px 14px; padding: 10px 12px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--warn-text) 10%, var(--bg)); color: var(--warn-text); font-size: .9em; }
+.m-banner p { margin: 0; }
 .m-quant-text { font-weight: 650; }
 .m-row-link { cursor: pointer; }
 .m-row-link:hover { background: var(--code-bg); }
@@ -199,7 +207,7 @@ dialog input { width: 100%; }
 .m-progress { height: 6px; border-radius: 100px; background: var(--border); overflow: hidden; }
 .m-progress-fill { width: var(--p, 0%); height: 100%; background: var(--accent); transition: width .4s var(--ease-out); }
 .m-progress-text { display: block; margin-top: 4px; text-align: right; font-size: .8em; color: var(--muted); }
-.m-note { font-size: .85em; font-style: italic; color: var(--muted); }
+.m-note { font-size: .85em; color: var(--muted); }
 .m-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
 .m-line + .m-line { margin-top: 6px; }
 .m-engine { font-size: .8em; font-weight: 650; }
@@ -1457,8 +1465,8 @@ function buildRows(model, row) {
         reason: !option.downloaded ? "Not downloaded." : loaded ? stopFirst : inUse ? "This build is in use: stop the model or select another build first." : "",
         onclick: event => askDelete(event.currentTarget, model, row, option)})));
     const tr = mEl("tr", {class: "m-row-link", "data-selected": option.current ? "" : null, onclick: event => { if (!event.target.closest("button")) quant.click(); }},
-      mEl("th", {scope: "row"}, quant),
-      mEl("td", {class: "m-note"}, row.note, option.fits === false ? mEl("p", {class: "m-reason"}, option.reason) : null),
+      mEl("th", {scope: "row"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null),
+      mEl("td", {class: "m-note"}, row.note),
       mEl("td", {class: "num m-engine-col"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Engine"), option.engine),
       mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Memory est."), row.estimated_mb + " MB"),
       mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Download size"), row.disk_mb + " MB"),
@@ -1480,14 +1488,18 @@ function renderVariants(data) {
         mEl("div", {class: "m-sub"}, mEl("span", {class: "m-small-text"}, "Selected: ", mEl("span", {class: "mono"}, model.current_quant), " on ", mEl("span", {class: "mono"}, model.current_engine)),
           ...model.capabilities.map(capability => mPill(capability[0].toUpperCase() + capability.slice(1))))),
       mEl("div", {class: "m-lifecycle"}, mEl("span", {class: "m-state"}, mPill(stateText, "state " + kind), ...(stateHelp ? mHelp(helpId, "What " + stateText.toLowerCase() + " means", stateHelp) : [])),
-        modelAction(model, "start", "Start", model.state === "running", "Model is already loaded"),
-        modelAction(model, "stop", "Stop", model.state === "stopped", "Model is already stopped"),
-        modelAction(model, "restart", "Restart", model.state === "stopped", "Start the model first")));
+        mEl("div", {class: "m-seg", role: "group", "aria-label": model.title + " lifecycle"},
+          modelAction(model, "start", "Start", model.state === "running", "Model is already loaded"),
+          modelAction(model, "stop", "Stop", model.state === "stopped", "Model is already stopped"),
+          modelAction(model, "restart", "Restart", model.state === "stopped", "Start the model first"))));
+    const blocked = model.builds.flatMap(row => row.engines.filter(option => option.fits === false)
+      .map(option => (model.builds.length > 1 ? row.title + " on " + option.engine + ": " : "") + option.reason));
+    const banner = blocked.length ? mEl("div", {class: "m-banner", role: "note"}, mEl("span", {"aria-hidden": "true"}, "⚠"), mEl("div", {}, ...blocked.map(text => mEl("p", {}, text)))) : null;
     const table = mEl("table", {class: "m-builds", "aria-label": model.title + " builds"},
       mEl("thead", {}, mEl("tr", {}, mEl("th", {scope: "col"}, "Build"), mEl("th", {scope: "col"}, "Note"), mEl("th", {scope: "col", class: "num"}, "Engine"),
         mEl("th", {scope: "col", class: "num"}, "Memory est."), mEl("th", {scope: "col", class: "num"}, "Download size"), mEl("th", {scope: "col", class: "m-right"}, "Actions"))),
       mEl("tbody", {}, ...model.builds.flatMap(row => buildRows(model, row)).flat()));
-    return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, table);
+    return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, banner, table);
   }));
   paintRowProgress();
 }
