@@ -7,6 +7,7 @@
 - Admin **Models** card: quantized builds under each model, live sizes from the Hub, per-build Use and Download.
 - Ollama address, GGUF folder and parallel generations are live admin settings (env variables only seed the first start).
 - `llamacpp` models carry their own sidecar `url` in the catalog; there is no `SERVICE_LLAMACPP_URL`.
+- Download progress bar on the Models page (one download at a time) and a Delete button for downloaded builds.
 - Start, Stop and Restart per model (stopped models refuse requests with 503); a Marketplace page that lists and adds other Hub quantizations of the supported models; builds that do not fit this machine cannot be downloaded, run, started or added.
 - A build lists the engines that can run it and the user chooses: **Run on <engine>** on the Models card, or `engine` in a request. Several models can stay loaded at once.
 - No default model: every request names its `model`, so there is no default setting, no warm-up and no Updates card (per-build Download replaces it).

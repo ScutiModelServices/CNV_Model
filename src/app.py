@@ -31,6 +31,7 @@ from disconnect import CallerGone, Measure, first_piece
 from dataclasses import replace
 from errors import CapabilityError, EngineError, UnknownModel
 from options import SETTINGS
+from progress import progress
 from router import ModelRouter
 import settings
 from tokens import LatencyHistogram, TokenStore
@@ -504,6 +505,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def download_build(name: str, body: Choice) -> dict[str, Any]:
         """The only place weights are fetched. Every replica then drops its loaded copy."""
         entry = pick(name, body)
+        if progress.snapshot()["active"]:
+            raise HTTPException(409, "Another download is running; wait for it to finish.")
         if (body.quant, body.engine) != (router.quant_of(entry), router.engine_of(entry)) \
                 and (reason := await asyncio.to_thread(fit_reason, entry, body.quant, body.engine)):
             raise HTTPException(409, reason)  # only builds this machine can run are downloaded
@@ -513,6 +516,26 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             raise HTTPException(502, f"Download failed: {error}") from None
         await unload_all()
         return {"downloaded": entry.source(body.quant, body.engine)}
+
+    @app.get("/admin/progress", dependencies=[Depends(admin)])
+    def download_progress() -> dict[str, Any]:
+        """The running download: {active, label, done, total} in bytes (total is null while unknown)."""
+        return progress.snapshot()
+
+    @app.post("/admin/models/{name}/delete", dependencies=[Depends(admin)])
+    async def delete_build(name: str, body: Choice) -> dict[str, Any]:
+        """Delete a downloaded build from its engine's storage. The build a running model uses is kept until the model is stopped."""
+        entry = pick(name, body)
+        if progress.snapshot()["active"]:
+            raise HTTPException(409, "A download is running; wait for it to finish.")
+        if (body.quant, body.engine) == (router.quant_of(entry), router.engine_of(entry)) and name not in router.stopped:
+            raise HTTPException(409, "This is the build the model runs: stop the model or run another build first.")
+        try:
+            await asyncio.to_thread(router.adapters[body.engine].delete, entry, body.quant)
+        except EngineError as error:
+            raise HTTPException(502, f"Delete failed: {error}") from None
+        await unload_all()
+        return {"deleted": entry.source(body.quant, body.engine)}
 
     def persist_stopped() -> None:
         settings.save(tokens.settings_path, stopped=sorted(router.stopped))

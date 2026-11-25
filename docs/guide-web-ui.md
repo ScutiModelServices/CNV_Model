@@ -99,6 +99,10 @@ The shared token UI still has a scope input, but this service refuses any projec
 
 The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: Ollama address, GGUF folder, parallel generations, caches and limits, thinking (off/on) and hide reasoning. Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
 
+## Download progress and delete
+
+Pressing **Download** shows a progress bar above the model list: the model, bytes done, and the total and percent once the engine reports them. It survives a page reload, and only one download runs at a time. **Delete** (shown instead of Download once a build is downloaded) removes it from Ollama or deletes the GGUF file, after a confirmation. The build a running model uses cannot be deleted: stop the model or run another build first. For BitNet, restart `cnv_bitnet_server` afterwards to free its memory.
+
 ## Start, stop and restart
 
 Each model on the Models page has **Start**, **Stop** and **Restart**. Stop unloads it from the engine and refuses its requests (503) until you start it; Start loads it now. The state (`stopped`, `running`, `ready`) is shown next to the title and saved for every replica.

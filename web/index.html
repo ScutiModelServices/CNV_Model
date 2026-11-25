@@ -449,6 +449,7 @@ progress { accent-color: var(--accent); border-radius: var(--radius-full); }
       <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><h2 id="variants-title">Models and builds</h2></div>
       <p class="description">Each model lists its builds (original and quantized) below it, and under each build the engines that can run it. Pick the engine you want to run a build on. Download fetches the weights. The memory figures are estimates, not measurements.</p>
       <p id="variants-hardware" class="description"></p>
+      <div id="models-progress" class="download-progress" hidden><progress id="models-bar" max="100" aria-labelledby="models-progress-text"></progress><p id="models-progress-text" class="description" role="status"></p></div>
       <ul id="variant-list" class="update-list"></ul>
       <p id="variants-note" class="saved" role="status"></p>
       <p id="variants-error" class="error" role="alert"></p>
@@ -1060,6 +1061,26 @@ function renderVoices(data) {
     return item;
   }));
 }
+let modelProgressTimer = 0, downloadingNow = false;
+function renderModelProgress(progress) {
+  const box = $("models-progress"), bar = $("models-bar");
+  box.hidden = !progress || !progress.active;
+  if (box.hidden) return;
+  const known = progress.total > 0, percent = known ? Math.min(100, Math.floor(progress.done * 100 / progress.total)) : null;
+  if (known) { bar.max = 100; bar.value = percent; } else bar.removeAttribute("value");
+  $("models-progress-text").textContent = "Downloading " + (progress.label || "weights") + ": " + megabytes(progress.done)
+    + (known ? " of " + megabytes(progress.total) + " (" + percent + "%)" : "");
+}
+function watchModelProgress() {
+  if (modelProgressTimer) return;
+  modelProgressTimer = setInterval(async () => {
+    try {
+      const progress = await call("GET", "progress");
+      renderModelProgress(progress);
+      if (!progress.active && !downloadingNow) { clearInterval(modelProgressTimer); modelProgressTimer = 0; await refreshVariants(); }
+    } catch {}
+  }, 1000);
+}
 function renderVariants(data) {
   $("variants-hardware").textContent = data.summary;
   const groups = data.models.map(model => {
@@ -1123,13 +1144,32 @@ function renderVariants(data) {
           get.onclick = async () => {
             $("variants-error").textContent = ""; $("variants-note").textContent = "Downloading " + model.title + " " + row.title + " for " + option.engine + "...";
             get.disabled = true;
+            downloadingNow = true;
+            watchModelProgress();
             try {
               await call("POST", "models/" + model.name + "/download", {quant: row.id, engine: option.engine}, 3600000);
               $("variants-note").textContent = "Downloaded " + model.title + " " + row.title + " for " + option.engine + ".";
               await refreshVariants();
             } catch (error) { report(error, "variants-error"); get.disabled = false; }
+            finally { downloadingNow = false; }
           };
           box.append(get);
+        } else {
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.textContent = "Delete";
+          remove.setAttribute("aria-label", "Delete " + model.title + " " + row.title + " for " + option.engine);
+          remove.onclick = async () => {
+            if (!confirm("Delete the downloaded " + model.title + " " + row.title + " from " + option.engine + "? You can download it again later.")) return;
+            $("variants-error").textContent = ""; $("variants-note").textContent = "";
+            remove.disabled = true;
+            try {
+              await call("POST", "models/" + model.name + "/delete", {quant: row.id, engine: option.engine}, 120000);
+              $("variants-note").textContent = "Deleted " + model.title + " " + row.title + " from " + option.engine + ".";
+              await refreshVariants();
+            } catch (error) { report(error, "variants-error"); remove.disabled = false; }
+          };
+          box.append(remove);
         }
         item.append(box);
       }
@@ -1179,7 +1219,11 @@ async function refreshMarket() {
   if (hasTag("variants")) renderMarket(await call("GET", "marketplace", undefined, 30000));
 }
 async function refreshVariants() {
-  if (hasTag("variants")) renderVariants(await call("GET", "models"));
+  if (!hasTag("variants")) return;
+  renderVariants(await call("GET", "models"));
+  const progress = await call("GET", "progress");
+  renderModelProgress(progress);
+  if (progress.active) watchModelProgress();
 }
 async function refreshVoices() {
   if (hasTag("voice-cloning")) renderVoices(await call("GET", "voices"));

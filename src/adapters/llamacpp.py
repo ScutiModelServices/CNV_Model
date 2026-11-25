@@ -96,6 +96,15 @@ class LlamaCppAdapter:
     def unload(self, entry: ModelEntry, quant: str) -> None:
         """Nothing to free: the sidecar keeps its one model in memory for as long as it runs."""
 
+    def delete(self, entry: ModelEntry, quant: str) -> None:
+        """Remove the GGUF file (and a half-finished download). A running sidecar keeps its open copy until it restarts."""
+        target = self.models_dir / entry.source(quant, "llamacpp")
+        try:
+            target.unlink(missing_ok=True)
+            target.with_name(target.name + ".part").unlink(missing_ok=True)
+        except OSError:
+            raise EngineError("Could not delete the file.", 500) from None
+
     def downloaded(self) -> set[str]:
         return {path.relative_to(self.models_dir).as_posix() for path in self.models_dir.rglob("*.gguf")} if self.models_dir.is_dir() else set()
 

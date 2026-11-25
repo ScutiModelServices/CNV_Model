@@ -156,6 +156,19 @@ class OllamaAdapter:
         model = entry.source(quant, "ollama")
         _json_call(self.url, "/api/generate", {"model": model, "prompt": "", "stream": False, "keep_alive": 0}, 30, model)
 
+    def delete(self, entry: ModelEntry, quant: str) -> None:
+        """Remove the model from Ollama's storage; already gone is fine."""
+        model = entry.source(quant, "ollama")
+        request = urllib.request.Request(f"{self.url}/api/delete", data=json.dumps({"model": model}).encode(), method="DELETE",
+                                         headers={"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(request, timeout=60).close()
+        except urllib.error.HTTPError as error:
+            if error.code != 404:
+                raise _unavailable(model) from None
+        except OSError:
+            raise _unavailable(model) from None
+
     def downloaded(self) -> set[str]:
         """Names of every model Ollama has on disk, with and without an implicit `:latest`."""
         reply = _json_call(self.url, "/api/tags", None, 15, "")
