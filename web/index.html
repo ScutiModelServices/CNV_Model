@@ -1452,7 +1452,7 @@ function buildRows(model, row) {
     const inUse = option.current && model.state !== "stopped" && option.fits !== false;
     const quant = mEl("button", {type: "button", class: "m-quant mono", "aria-label": "Build details for " + where, onclick: event => buildDetails(event.currentTarget, model, row)}, row.title);
     const actions = mEl("td", {class: "m-actions-cell"}, mEl("div", {class: "m-actions"},
-      mIconButton("select", "Select " + where, option.current ? "Selected" : "Select this build", {on: option.current, reason: blocked || (loaded ? stopFirst : ""), onclick: async () => {
+      mIconButton("select", "Select " + where, option.current ? "Selected" : "Select this build", {on: option.current, reason: blocked || (!option.downloaded ? "Download it first: only a downloaded build can be selected." : loaded ? stopFirst : ""), onclick: async () => {
         $("variants-error").textContent = ""; $("variants-note").textContent = "";
         try {
           const saved = await call("PUT", "models/" + model.name + "/run", {quant: row.id, engine: option.engine});
@@ -1499,7 +1499,7 @@ function renderVariants(data) {
     const helpId = "state-help-" + model.name;
     const head = mEl("header", {class: "m-head"},
       mEl("div", {class: "m-title"}, mEl("h3", {id: "model-" + model.name}, model.title),
-        mEl("div", {class: "m-sub"}, mEl("span", {class: "m-small-text"}, "Selected: ", mEl("span", {class: "mono"}, model.current_quant), " on ", mEl("span", {class: "mono"}, model.current_engine)),
+        mEl("div", {class: "m-sub"}, mEl("span", {class: "m-small-text"}, "Selected: ", ...(model.current_quant ? [mEl("span", {class: "mono"}, model.current_quant), " on ", mEl("span", {class: "mono"}, model.current_engine)] : [mEl("span", {class: "mono"}, "none")])),
           ...model.capabilities.map(capability => mPill(capability[0].toUpperCase() + capability.slice(1))))),
       mEl("div", {class: "m-lifecycle"}, mEl("span", {class: "m-state"}, mPill(stateText, "state " + kind), ...(stateHelp ? mHelp(helpId, "What " + stateText.toLowerCase() + " means", stateHelp) : [])),
         mEl("div", {class: "m-seg", role: "group", "aria-label": model.title + " lifecycle"},

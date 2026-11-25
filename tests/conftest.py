@@ -62,7 +62,8 @@ class FakeAdapter:
         self.deletes.append((entry.name, quant))
 
     def downloaded(self):
-        return set()
+        """Every build counts as downloaded, so a test can select any of them."""
+        return {e.source(b.quant, self.name) for e in CATALOG.values() for b in e.builds if self.name in b.engines}
 
     def download(self, entry, quant):
         self.downloads.append((entry.name, quant))
@@ -71,4 +72,4 @@ class FakeAdapter:
 def make_router(**options):
     """A router over the shipped catalog whose engines are fakes."""
     adapters = {"ollama": FakeAdapter("ollama", **options), "llamacpp": FakeAdapter("llamacpp", **options)}
-    return ModelRouter(dict(CATALOG), adapters)
+    return ModelRouter(dict(CATALOG), adapters, {name: item.builds[0].quant for name, item in CATALOG.items()})  # nothing is selected by default; the tests select the first build

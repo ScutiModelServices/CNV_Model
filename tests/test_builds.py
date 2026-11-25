@@ -2,7 +2,7 @@ from builds import cached_sizes, hub_sizes, listing
 from catalog import Build, ModelEntry
 
 ENGINES = {"ollama": {}, "llamacpp": {"ref": "m.gguf", "url": "http://x:1"}}
-ENTRY = ModelEntry("m", "M", "org/m", "Q4_K_M", frozenset(),
+ENTRY = ModelEntry("m", "M", "org/m", frozenset(),
                    (Build("Q4_K_M", 1000, engines={"ollama": {}}), Build("Q8_0", 1800, engines=ENGINES), Build("F16", 3300, engines={"ollama": {}})))
 HW = {"ollama": {"gpu": None, "ram_available_mb": 3000}, "llamacpp": {"gpu": None, "ram_available_mb": 3000}}  # CPU limit 2550 MB: Q8_0 needs 2380, F16 needs 4030
 CURRENT = ("Q4_K_M", "ollama")
@@ -76,7 +76,7 @@ def test_cached_sizes_uses_cache_then_falls_back(tmp_path):
 
 
 def test_a_build_that_needs_avx2_does_not_fit_a_cpu_without_it():
-    needs = ModelEntry("b", "B", "org/b", "i2_s", frozenset(),
+    needs = ModelEntry("b", "B", "org/b", frozenset(),
                        (Build("i2_s", 1000, engines={"llamacpp": {"ref": "b.gguf", "url": "http://x:1", "cpu": "avx2"}}),))
     hw = {"llamacpp": {"gpu": None, "ram_available_mb": 8000}}
     old = listing(needs, hw, ("i2_s", "llamacpp"), {}, {}, {"sse4_2", "avx"})[0]["engines"][0]

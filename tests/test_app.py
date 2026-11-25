@@ -197,6 +197,8 @@ def test_marketplace_lists_adds_and_removes_hub_variants(tmp_path):
     assert c.post("/admin/marketplace/lfm3/add", json={"quant": "IQ4_XS"}, headers=ADMIN).status_code == 200
     lfm3 = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
     assert "IQ4_XS" in [b["id"] for b in lfm3["builds"]]
+    on_disk = {router.catalog["lfm3"].source(q, "ollama") for q in ("IQ4_XS", "Q4_K_M")}
+    router.adapters["ollama"].downloaded = lambda: on_disk
     assert c.put("/admin/models/lfm3/run", json={"quant": "IQ4_XS", "engine": "ollama"}, headers=ADMIN).status_code == 200
     assert c.delete("/admin/marketplace/lfm3/IQ4_XS", headers=ADMIN).status_code == 409  # it is the build in use
     c.put("/admin/models/lfm3/run", json={"quant": "Q4_K_M", "engine": "ollama"}, headers=ADMIN)
@@ -292,3 +294,22 @@ def test_a_build_the_cpu_cannot_run_can_be_deleted_without_stopping(monkeypatch)
     c = client(router, admin_password="pw")
     deleted = c.post("/admin/models/bitnet2b/delete", json={"quant": "i2_s", "engine": "llamacpp"}, headers=ADMIN)
     assert deleted.status_code == 200 and router.adapters["llamacpp"].deletes == [("bitnet2b", "i2_s")]
+
+
+def test_nothing_is_selected_by_default_and_only_a_downloaded_build_can_be_selected(tmp_path):
+    router = make_router()
+    router.quants.clear()  # a fresh install: no saved choice
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(router, "pw", tokens=store, fetch_sizes=no_hub))
+    lfm3 = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
+    assert lfm3["current_quant"] is None and lfm3["current_engine"] is None
+    token = {"X-Internal-Token": store.create("t")["token"]}
+    refused = c.post("/v1/chat", json=BODY, headers=token)
+    assert refused.status_code == 503 and "no selected build" in refused.json()["detail"]
+    choice = {"quant": "Q8_0", "engine": "ollama"}
+    router.adapters["ollama"].downloaded = lambda: set()
+    not_downloaded = c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN)
+    assert not_downloaded.status_code == 409 and "Download this build first" in not_downloaded.json()["detail"]
+    router.adapters["ollama"].downloaded = lambda: {router.catalog["lfm3"].source("Q8_0", "ollama")}
+    assert c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN).status_code == 200
+    assert c.post("/v1/chat", json=BODY, headers=token).status_code == 200

@@ -21,12 +21,12 @@ class Adapter:
 
 def entry(name, caps=()):
     both = {"ollama": {}, "llamacpp": {"ref": "x.gguf", "url": "http://x:1"}}
-    return ModelEntry(name, name, "o/" + name, "A", frozenset(caps), (Build("A", 1, engines=both), Build("B", 2, engines={"ollama": {}})))
+    return ModelEntry(name, name, "o/" + name, frozenset(caps), (Build("A", 1, engines=both), Build("B", 2, engines={"ollama": {}})))
 
 
 def make():
     adapter = Adapter()
-    return ModelRouter({"a": entry("a", ["tools"]), "b": entry("b")}, {"ollama": adapter, "llamacpp": adapter}), adapter
+    return ModelRouter({"a": entry("a", ["tools"]), "b": entry("b")}, {"ollama": adapter, "llamacpp": adapter}, {"a": "A", "b": "A"}), adapter
 
 
 def run(coro): return asyncio.run(coro)

@@ -5,7 +5,7 @@ from catalog import CatalogError, load_catalog
 
 def write(folder, name, **over):
     body = {"name": name, "title": name.title(), "repo": "org/" + name,
-            "default_quant": "Q4_K_M", "capabilities": ["tools"],
+            "capabilities": ["tools"],
             "builds": [{"quant": "Q4_K_M", "file_mb": 1000, "note": "usual", "engines": {"ollama": {}}},
                        {"quant": "Q8_0", "file_mb": 1800, "engines": {"ollama": {}, "llamacpp": {"ref": "a-Q8_0.gguf", "url": "http://x:1"}}}]}
     body.update(over)
@@ -23,7 +23,7 @@ def test_loads_entries_and_sources(tmp_path):
 
 
 @pytest.mark.parametrize("over", [
-    {"default_quant": "Q2"}, {"capabilities": ["flying"]}, {"builds": []},
+    {"capabilities": ["flying"]}, {"builds": []},
     {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {}}]},
     {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"nope": {}}}]},
     {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"llamacpp": {"ref": "x.gguf"}}}]},

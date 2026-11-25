@@ -4,7 +4,7 @@ from catalog import Build, ModelEntry
 from adapters.llamacpp import LlamaCppAdapter
 from adapters.ollama import OllamaAdapter
 
-ENTRY = ModelEntry("bitnet2b", "BitNet", "org/bitnet", "i2_s", frozenset(),
+ENTRY = ModelEntry("bitnet2b", "BitNet", "org/bitnet", frozenset(),
                    (Build("i2_s", 1200, engines={"llamacpp": {"ref": "bitnet-i2_s.gguf", "url": "http://llama:8080"}}),))
 REPLY = {"choices": [{"message": {"content": " hi "}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}}
 
@@ -40,7 +40,7 @@ def test_llamacpp_generate_maps_openai_reply(tmp_path, monkeypatch):
 
 def test_llamacpp_prompt_bitnet_renders_the_prompt_and_uses_completion(tmp_path, monkeypatch):
     adapter = adapter_with_file(tmp_path)
-    entry = ModelEntry("bitnet2b", "BitNet", "org/bitnet", "i2_s", frozenset(),
+    entry = ModelEntry("bitnet2b", "BitNet", "org/bitnet", frozenset(),
                        (Build("i2_s", 1200, engines={"llamacpp": {"ref": "bitnet-i2_s.gguf", "url": "http://llama:8080", "prompt": "bitnet"}}),))
     calls = fake_open(adapter, monkeypatch, {"/tokenize": {"tokens": [1, 2, 3]},
                                              "/completion": {"content": " hi ", "tokens_evaluated": 3, "tokens_predicted": 1, "stopped_limit": False}})
@@ -55,7 +55,7 @@ def test_llamacpp_prompt_bitnet_refuses_a_conversation_longer_than_the_context(t
     from errors import EngineError
 
     adapter = adapter_with_file(tmp_path)
-    entry = ModelEntry("bitnet2b", "BitNet", "org/bitnet", "i2_s", frozenset(),
+    entry = ModelEntry("bitnet2b", "BitNet", "org/bitnet", frozenset(),
                        (Build("i2_s", 1200, engines={"llamacpp": {"ref": "bitnet-i2_s.gguf", "url": "http://llama:8080", "prompt": "bitnet"}}),))
     fake_open(adapter, monkeypatch, {"/tokenize": {"tokens": list(range(4096))}})
     with pytest.raises(EngineError) as long:
@@ -109,6 +109,6 @@ def test_ollama_delete_sends_delete_and_ignores_not_found(monkeypatch):
         raise urllib.error.HTTPError(request.full_url, 404, "not found", {}, None)
 
     monkeypatch.setattr("adapters.ollama.urllib.request.urlopen", fake_urlopen)
-    entry = ModelEntry("m", "M", "org/m", "Q4_K_M", frozenset(), (Build("Q4_K_M", 1, engines={"ollama": {}}),))
+    entry = ModelEntry("m", "M", "org/m", frozenset(), (Build("Q4_K_M", 1, engines={"ollama": {}}),))
     OllamaAdapter("http://127.0.0.1:11434").delete(entry, "Q4_K_M")
     assert sent == [("DELETE", "http://127.0.0.1:11434/api/delete", b'{"model": "hf.co/org/m:Q4_K_M"}')]

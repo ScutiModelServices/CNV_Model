@@ -45,12 +45,15 @@ class ModelRouter:
         except KeyError:
             raise UnknownModel(model) from None
 
-    def quant_of(self, entry: ModelEntry) -> str:
-        return self.quants.get(entry.name, entry.default_quant)
+    def quant_of(self, entry: ModelEntry) -> str | None:
+        """The build the user selected; None until they select one (there is no default)."""
+        return self.quants.get(entry.name)
 
     def engine_of(self, entry: ModelEntry, engine: str | None = None) -> str:
         """The engine for this model: the request's, else the user's saved choice, else the first the build lists.
         CapabilityError when the build cannot run on it."""
+        if self.quant_of(entry) is None:
+            raise EngineError(f"{entry.name} has no selected build: download one and select it on the admin page.", 503)
         listed = entry.engines(self.quant_of(entry))
         chosen = engine or self.engines.get(entry.name) or listed[0]
         if chosen not in listed:

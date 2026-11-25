@@ -152,7 +152,7 @@ def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRou
     saved = settings.load(tokens.settings_path).get("quants") or {}
     quants = {name: quant for name, quant in saved.items() if name in catalog and any(b.quant == quant for b in catalog[name].builds)}
     engines = {name: engine for name, engine in (settings.load(tokens.settings_path).get("engines") or {}).items()
-               if name in catalog and engine in catalog[name].engines(quants.get(name, catalog[name].default_quant))}
+               if name in quants and engine in catalog[name].engines(quants[name])}
     router = ModelRouter(catalog, adapters, quants, option("ollama_parallel"), engines)
     router.stopped = set(settings.load(tokens.settings_path).get("stopped") or []) & set(catalog)
     return router
@@ -202,6 +202,11 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         mb = files.get(quant, {}).get("mb") or entry.build(quant).file_mb
         where, reason = builds.place(builds.estimate_mb(mb), hardware.probe())
         return None if where or reason == builds.UNKNOWN else reason
+
+    def current_of(entry) -> tuple[str | None, str | None]:
+        """The (build, engine) the user selected, or (None, None) while nothing is selected."""
+        quant = router.quant_of(entry)
+        return quant, router.engine_of(entry) if quant else None
 
     router.guard = router.guard or fit_reason  # a build that does not fit is never loaded, not even by a request
     marker = Path(tokens.settings_path).parent / ".cnv-weights-version"
@@ -261,7 +266,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
                 router.set_parallel(config.get("ollama_parallel"))
             for name in router.catalog:
                 entry = router.catalog[name]
-                quant = (saved.get("quants") or {}).get(name, entry.default_quant)
+                quant = (saved.get("quants") or {}).get(name)
                 engine = (saved.get("engines") or {}).get(name)
                 if quant in {b.quant for b in entry.builds} and engine in entry.engines(quant) \
                         and (quant, engine) != (router.quant_of(entry), router.engines.get(name)):
@@ -323,8 +328,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     @app.get("/v1/models", dependencies=[Depends(authorize)])
     async def models() -> list[dict[str, Any]]:
-        return [{"name": e.name, "title": e.title, "capabilities": sorted(e.capabilities), "quant": router.quant_of(e),
-                 "engine": router.engine_of(e), "state": router.state_of(e.name), "builds": [{"quant": b.quant, "engines": list(b.engines)} for b in e.builds]}
+        return [{"name": e.name, "title": e.title, "capabilities": sorted(e.capabilities), **dict(zip(("quant", "engine"), current_of(e))),
+                 "state": router.state_of(e.name), "builds": [{"quant": b.quant, "engines": list(b.engines)} for b in e.builds]}
                 for e in router.catalog.values()]
 
     def build(reply: dict[str, Any], started: float) -> dict[str, Any]:
@@ -406,6 +411,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             raise HTTPException(404, "Unknown model") from None
         except CapabilityError as error:
             raise HTTPException(422, str(error)) from None
+        except EngineError as error:  # nothing selected for this model
+            raise HTTPException(error.status or 503, str(error)) from None
         if body.model in router.stopped:  # before the cache: a stopped model must not keep answering
             raise HTTPException(503, str(ModelStopped(body.model)))
         size = cache_limit() if body.temperature == 0 else 0  # a higher temperature asks for a different answer each time
@@ -468,7 +475,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         rows = []
         for entry in router.catalog.values():
             live = await asyncio.to_thread(builds.cached_sizes, sizes_file, entry.repo, fetch_sizes, time.time())
-            current = (router.quant_of(entry), router.engine_of(entry))
+            current = current_of(entry)
             rows.append({"name": entry.name, "title": entry.title, "capabilities": sorted(entry.capabilities),
                          "current_quant": current[0], "current_engine": current[1], "state": router.state_of(entry.name),
                          "builds": builds.listing(entry, hw, current, on_disk, live, flags)})
@@ -505,6 +512,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         option = next(o for r in model["builds"] if r["id"] == body.quant for o in r["engines"] if o["engine"] == body.engine)
         if option["fits"] is False:
             raise HTTPException(409, option["reason"])
+        if not option["downloaded"]:
+            raise HTTPException(409, "Download this build first: only a downloaded build can be selected.")
         router.set_choice(name, body.quant, body.engine)
         saved = settings.load(tokens.settings_path)
         settings.save(tokens.settings_path, quants={**(saved.get("quants") or {}), name: body.quant},
@@ -520,7 +529,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             raise HTTPException(409, "Another download is running; wait for it to finish.")
         if cpu := builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags()):
             raise HTTPException(409, cpu)  # it could never run here, not even as the running build
-        if (body.quant, body.engine) != (router.quant_of(entry), router.engine_of(entry)) \
+        if (body.quant, body.engine) != current_of(entry) \
                 and (reason := await asyncio.to_thread(fit_reason, entry, body.quant, body.engine)):
             raise HTTPException(409, reason)  # only builds this machine can run are downloaded
         try:
@@ -543,7 +552,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         if progress.snapshot()["active"]:
             raise HTTPException(409, "A download is running; wait for it to finish.")
         runs_here = not builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags())  # a build this CPU cannot run is not in use
-        if runs_here and (body.quant, body.engine) == (router.quant_of(entry), router.engine_of(entry)) and name not in router.stopped:
+        if runs_here and (body.quant, body.engine) == current_of(entry) and name not in router.stopped:
             raise HTTPException(409, "This is the build the model runs: stop the model or run another build first.")
         try:
             await asyncio.to_thread(router.adapters[body.engine].delete, entry, body.quant)
@@ -566,7 +575,9 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             await router.stop(name)
             persist_stopped()
         if action in ("start", "restart"):
-            if reason := await asyncio.to_thread(fit_reason, entry, router.quant_of(entry), router.engine_of(entry)):
+            if router.quant_of(entry) is None:
+                raise HTTPException(409, "Select a downloaded build first.")
+            if reason := await asyncio.to_thread(fit_reason, entry, *current_of(entry)):
                 raise HTTPException(409, reason)  # stays stopped
             try:
                 await router.start(name)
@@ -589,7 +600,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         models = []
         for name, base in base_catalog.items():
             files = await marketplace_files(base)
-            runs_on_ollama = "ollama" in base.engines(base.default_quant)
+            runs_on_ollama = "ollama" in base.builds[0].engines
             rows = builds.marketplace(base, {b.quant for b in base.builds}, files, machine, {x["quant"] for x in extras.get(name, [])}) if runs_on_ollama else []
             note = "" if runs_on_ollama else "Runs on its own sidecar: add builds in its catalog file."
             models.append({"name": name, "title": base.title, "variants": rows,
@@ -603,7 +614,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             base = base_catalog[router.entry(name).name]
         except UnknownModel:
             raise HTTPException(404, "No such model.") from None
-        if "ollama" not in base.engines(base.default_quant):
+        if "ollama" not in base.builds[0].engines:
             raise HTTPException(422, "This model runs on its own sidecar: add builds in its catalog file.")
         item = (await marketplace_files(base)).get(body.quant)
         if item is None or body.quant in {b.quant for b in base.builds}:
