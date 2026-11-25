@@ -48,7 +48,7 @@ docker compose up -d --build
 docker compose ps
 curl http://127.0.0.1:29204/health
 ```
-There is no warm-up: a model loads on its first request. `/health` and the admin page answer even if Ollama is unavailable; chat returns 503 until the model's weights are downloaded (admin page → **Models and builds** → **Download**) and the engine is reachable. The `cnv_bitnet_server` container waits for the BitNet file instead of restarting; after downloading it, `docker compose restart cnv_bitnet_server`.
+There is no warm-up: a model loads on its first request. `/health` and the admin page answer even if Ollama is unavailable; chat returns 503 until the model's weights are downloaded (admin page → **Models and builds** → **Download**) and the engine is reachable. The `cnv_bitnet_server` container waits for the BitNet file instead of restarting, and starts within about 10 seconds of that download finishing.
 
 ## 4. Connect callers
 
