@@ -1,0 +1,92 @@
+{
+  "name": "inklingmini",
+  "title": "Inkling 2 Mini 26B",
+  "repo": "unsloth/Inkling-2-Mini-GGUF",
+  "default_quant": "UD-Q4_K_M",
+  "capabilities": [
+    "tools",
+    "thinking"
+  ],
+  "builds": [
+    {
+      "quant": "UD-IQ1_S",
+      "file_mb": 7405,
+      "note": "Smallest and roughest; quality drops a lot.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-IQ1_M",
+      "file_mb": 7653,
+      "note": "Very small; quality drops a lot.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-IQ2_XXS",
+      "file_mb": 8093,
+      "note": "Very small; clear quality loss.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-Q2_K_XL",
+      "file_mb": 8715,
+      "note": "Smallest build that still holds up; fits a 16 GB machine.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-IQ3_XXS",
+      "file_mb": 11123,
+      "note": "Small; moderate quality loss.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-Q3_K_XL",
+      "file_mb": 13000,
+      "note": "Medium; little quality loss.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-IQ4_XS",
+      "file_mb": 15005,
+      "note": "Close to Q4 at a slightly smaller size.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-Q4_K_M",
+      "file_mb": 15841,
+      "note": "The usual choice: Unsloth's recommended build, little quality loss.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-Q4_K_XL",
+      "file_mb": 16813,
+      "note": "A little larger and closer to the original.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "UD-Q8_K_XL",
+      "file_mb": 21808,
+      "note": "Almost the original: largest.",
+      "engines": {
+        "ollama": {}
+      }
+    }
+  ]
+}

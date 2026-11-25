@@ -12,7 +12,7 @@ First start: open `/admin/` → **Models and builds** → **Download** on a buil
 | `GET /v1/models` | Each model's `name`, `title`, `capabilities`, the `quant` and `engine` it runs now, and its `builds` with the engines that can run each. Token required when auth is on. |
 | `GET /health` | `status`, `ready` (some model is loaded), `models`, `num_thread`; no token required. |
 
-`model` is required and is a catalog name (`lfm3`, `sparkx26`, `minicpm52b`, `bitnet2b`); there is no default model. A missing `model` is 422, an unknown name 404. `tools` on a model without the `tools` capability, and `schema`, `project` or `thinking` in any request, are 422. Thinking is an admin setting. Messages, limits, streaming (NDJSON `content` lines then `done`), cache (`X-Cache`, temperature 0 only; the key includes model and quant) and tokens work as in the old services.
+`model` is required and is a catalog name (`lfm3`, `sparkx26`, `minicpm52b`, `bitnet2b`, `inklingmini`); there is no default model. A missing `model` is 422, an unknown name 404. `tools` on a model without the `tools` capability, and `schema`, `project` or `thinking` in any request, are 422. Thinking is an admin setting. Messages, limits, streaming (NDJSON `content` lines then `done`), cache (`X-Cache`, temperature 0 only; the key includes model and quant) and tokens work as in the old services.
 
 ## Download progress and delete
 
@@ -45,7 +45,7 @@ A model lists its builds (original or quantized), and each build lists the engin
 | `ollama` | An Ollama server; its address is the **Ollama server address** setting. Download is `ollama pull`. |
 | `llamacpp` | A `llama-server` sidecar that holds one GGUF (`sidecars/bitnet/` for BitNet), at the `url` in the build's catalog entry. Weights are GGUF files in the **GGUF folder** setting (`/models` in Docker; the host folder is `SERVICE_MODELS_PATH` in compose), shared with the sidecar. |
 
-Today `lfm3`, `sparkx26` and `minicpm52b` list only `ollama`, and `bitnet2b` only `llamacpp` (bitnet.cpp is the only engine that reads its `i2_s` weights). A second engine for a build is one more entry in its `engines`, plus a running sidecar for it.
+Today `lfm3`, `sparkx26`, `minicpm52b` and `inklingmini` list only `ollama`, and `bitnet2b` only `llamacpp` (bitnet.cpp is the only engine that reads its `i2_s` weights). A second engine for a build is one more entry in its `engines`, plus a running sidecar for it.
 
 ## Run
 
