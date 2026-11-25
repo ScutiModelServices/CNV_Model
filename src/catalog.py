@@ -11,7 +11,8 @@ from pathlib import Path
 
 CAPABILITIES = frozenset({"tools", "thinking", "schema", "project"})
 ENGINES = frozenset({"ollama", "llamacpp"})
-ENGINE_FIELDS = {"ollama": (frozenset(), frozenset()), "llamacpp": (frozenset({"ref", "url"}), frozenset({"prompt"}))}  # (required, optional) options of a build
+ENGINE_FIELDS = {"ollama": (frozenset(), frozenset()), "llamacpp": (frozenset({"ref", "url"}), frozenset({"prompt", "cpu"}))}  # (required, optional) options of a build
+CPU_FEATURES = frozenset({"avx2"})  # llamacpp `cpu`: a CPU flag the build needs (bitnet.cpp's i2_s kernel needs AVX2)
 PROMPTS = frozenset({"bitnet"})  # llamacpp `prompt`: how the service writes the conversation for a server without a chat template
 
 
@@ -71,6 +72,8 @@ def _build(path: Path, raw: dict) -> Build:
             raise CatalogError(f"{path.name}: engine {engine} takes {sorted(required) or 'no options'} and optionally {sorted(optional)}")
         if options.get("prompt", "bitnet") not in PROMPTS:
             raise CatalogError(f"{path.name}: unknown prompt '{options['prompt']}'")
+        if options.get("cpu", "avx2") not in CPU_FEATURES:
+            raise CatalogError(f"{path.name}: unknown cpu feature '{options['cpu']}'")
     return Build(raw["quant"], int(raw["file_mb"]), raw.get("note", ""), {k: dict(v) for k, v in engines.items()})
 
 

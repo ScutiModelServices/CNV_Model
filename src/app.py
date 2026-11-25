@@ -194,6 +194,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     def fit_reason(entry, quant: str, engine: str) -> str | None:
         """Why this build cannot run on this machine, or None (it fits, or the engine is elsewhere or memory is unreadable).
         Sizes come from the cache only: no network call on the request path."""
+        if cpu := builds.missing_cpu(entry, quant, engine, builds.cpu_flags()):
+            return cpu
         if not router.adapters[engine].same_machine:
             return None
         files = builds.cached_files(sizes_file, entry.repo, _offline, time.time())
@@ -460,13 +462,14 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             except EngineError:
                 on_disk[engine] = set()
         hw = {engine: machine if adapter.same_machine else None for engine, adapter in router.adapters.items()}
+        flags = builds.cpu_flags()
         rows = []
         for entry in router.catalog.values():
             live = await asyncio.to_thread(builds.cached_sizes, sizes_file, entry.repo, fetch_sizes, time.time())
             current = (router.quant_of(entry), router.engine_of(entry))
             rows.append({"name": entry.name, "title": entry.title, "capabilities": sorted(entry.capabilities),
                          "current_quant": current[0], "current_engine": current[1], "state": router.state_of(entry.name),
-                         "builds": builds.listing(entry, hw, current, on_disk, live)})
+                         "builds": builds.listing(entry, hw, current, on_disk, live, flags)})
         return machine, rows
 
     @app.get("/admin/models", dependencies=[Depends(admin)])
@@ -507,6 +510,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         entry = pick(name, body)
         if progress.snapshot()["active"]:
             raise HTTPException(409, "Another download is running; wait for it to finish.")
+        if cpu := builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags()):
+            raise HTTPException(409, cpu)  # it could never run here, not even as the running build
         if (body.quant, body.engine) != (router.quant_of(entry), router.engine_of(entry)) \
                 and (reason := await asyncio.to_thread(fit_reason, entry, body.quant, body.engine)):
             raise HTTPException(409, reason)  # only builds this machine can run are downloaded

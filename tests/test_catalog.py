@@ -44,6 +44,9 @@ def test_llamacpp_prompt_option_is_optional_and_checked(tmp_path):
     assert "prompt" not in with_options(base)["p"].options("Q4_K_M", "llamacpp")
     with pytest.raises(CatalogError):
         with_options({**base, "prompt": "nope"})
+    assert with_options({**base, "cpu": "avx2"})["p"].options("Q4_K_M", "llamacpp")["cpu"] == "avx2"
+    with pytest.raises(CatalogError):
+        with_options({**base, "cpu": "avx9"})
 
 
 def test_name_must_match_file(tmp_path):

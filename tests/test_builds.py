@@ -73,3 +73,13 @@ def test_cached_sizes_uses_cache_then_falls_back(tmp_path):
     assert cached_sizes(path, "org/m", boom, now=1500)["Q4_K_M"] == 1010   # fresh cache, no fetch
     assert cached_sizes(path, "org/m", boom, now=999999)["Q4_K_M"] == 1010  # stale but Hub down
     assert cached_sizes(tmp_path / "none.json", "org/m", boom, now=1) == {}
+
+
+def test_a_build_that_needs_avx2_does_not_fit_a_cpu_without_it():
+    needs = ModelEntry("b", "B", "org/b", "i2_s", frozenset(),
+                       (Build("i2_s", 1000, engines={"llamacpp": {"ref": "b.gguf", "url": "http://x:1", "cpu": "avx2"}}),))
+    hw = {"llamacpp": {"gpu": None, "ram_available_mb": 8000}}
+    old = listing(needs, hw, ("i2_s", "llamacpp"), {}, {}, {"sse4_2", "avx"})[0]["engines"][0]
+    assert old["fits"] is False and "AVX2" in old["reason"]  # even though it is the running build
+    assert listing(needs, hw, ("i2_s", "llamacpp"), {}, {}, {"avx", "avx2"})[0]["engines"][0]["fits"] is True
+    assert listing(needs, hw, ("i2_s", "llamacpp"), {}, {}, None)[0]["engines"][0]["fits"] is True  # flags unreadable: allowed

@@ -18,6 +18,25 @@ REMOTE = "The engine runs on another machine, so its memory cannot be checked."
 _QUANT = re.compile(r"[-_.]((?:IQ|Q)\d\w*|F16|BF16|F32|i2_s)\.gguf$", re.IGNORECASE)
 
 
+def cpu_flags() -> set[str] | None:
+    """CPU feature flags of this machine (Linux, also inside a container: it shows the host's CPU); None when unreadable."""
+    try:
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith(("flags", "Features")):
+                return set(line.split(":", 1)[1].split())
+    except OSError:
+        pass
+    return None
+
+
+def missing_cpu(entry: ModelEntry, quant: str, engine: str, flags: set[str] | None) -> str | None:
+    """Why the CPU cannot run this build (it lacks a required flag), or None (fine, or the flags cannot be read)."""
+    needs = entry.options(quant, engine).get("cpu")
+    if needs and flags is not None and needs not in flags:
+        return f"Needs a CPU with {needs.upper()}; this one does not have it."
+    return None
+
+
 def estimate_mb(file_mb: int) -> int:
     return round(file_mb * 1.1 + 400)
 
@@ -35,7 +54,7 @@ def place(need_mb: int, hardware: dict[str, Any]) -> tuple[str | None, str]:
 
 
 def listing(entry: ModelEntry, hardware: dict[str, dict[str, Any] | None], current: tuple[str, str],
-            downloaded: dict[str, set[str]], live: dict[str, int]) -> list[dict[str, Any]]:
+            downloaded: dict[str, set[str]], live: dict[str, int], flags: set[str] | None = None) -> list[dict[str, Any]]:
     """Every build of `entry`, smallest first, each with the engines that can run it. `hardware[engine]` is what that
     engine's machine has (None when it is another machine); `downloaded[engine]` the sources it has on disk;
     `current` is the (build, engine) the user runs now."""
@@ -49,7 +68,10 @@ def listing(entry: ModelEntry, hardware: dict[str, dict[str, Any] | None], curre
             hw = hardware.get(engine)
             where, reason = place(need, hw) if hw is not None else (None, REMOTE)
             fits = True if in_use or where else (None if reason in (UNKNOWN, REMOTE) else False)
-            options.append({"engine": engine, "current": in_use, "fits": fits, "reason": "" if in_use or fits else reason,
+            cpu = missing_cpu(entry, build.quant, engine, flags)  # even the running build: it cannot work
+            if cpu:
+                fits, reason, where = False, cpu, None
+            options.append({"engine": engine, "current": in_use, "fits": fits, "reason": reason if cpu else "" if in_use or fits else reason,
                             "runs_on": where, "downloaded": entry.source(build.quant, engine) in downloaded.get(engine, set())})
         rows.append({"id": build.quant, "title": build.quant, "quant": build.quant, "note": build.note,
                      "detail": f"about {need} MB · {mb} MB download · {build.note}",

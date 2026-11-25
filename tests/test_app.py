@@ -239,3 +239,22 @@ def test_delete_a_downloaded_build_but_not_the_one_in_use():
     assert router.adapters["ollama"].deletes == [("lfm3", "Q8_0")]
     c.post("/admin/models/lfm3/stop", headers=ADMIN)
     assert delete("Q4_K_M").status_code == 200 and router.adapters["ollama"].deletes[-1] == ("lfm3", "Q4_K_M")
+
+
+def test_a_build_that_needs_avx2_is_refused_on_a_cpu_without_it(monkeypatch):
+    import builds
+
+    monkeypatch.setattr(builds, "cpu_flags", lambda: {"sse4_2", "avx"})
+    router = make_router()
+    c = client(router, admin_password="pw")
+    body = {"quant": "i2_s", "engine": "llamacpp"}
+    for route, verb in (("download", c.post), ("run", c.put)):
+        refused = verb(f"/admin/models/bitnet2b/{route}", json=body, headers=ADMIN)
+        assert refused.status_code == 409 and "AVX2" in refused.json()["detail"]
+    assert c.post("/admin/models/bitnet2b/start", headers=ADMIN).status_code == 409
+    open_door = client(router)  # no auth: the same router
+    chat = open_door.post("/v1/chat", json={**BODY, "model": "bitnet2b"})
+    assert chat.status_code == 503 and "AVX2" in chat.json()["detail"] and router.adapters["llamacpp"].loads == []
+    row = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "bitnet2b")["builds"][0]["engines"][0]
+    assert row["fits"] is False and "AVX2" in row["reason"]
+    assert open_door.post("/v1/chat", json=BODY).status_code == 200  # the Ollama models are not affected

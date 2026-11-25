@@ -14,6 +14,14 @@ def _tmp_tokens_file(tmp_path, monkeypatch):
     monkeypatch.setenv("SERVICE_TOKENS_FILE", str(tmp_path / "tokens.json"))
 
 
+@pytest.fixture(autouse=True)
+def _cpu_with_avx2(monkeypatch):
+    """The machine the tests run on does not matter: it has AVX2 unless a test says otherwise."""
+    import builds
+
+    monkeypatch.setattr(builds, "cpu_flags", lambda: {"avx", "avx2"})
+
+
 class FakeLoaded:
     """Stands in for a loaded model: answers `reply` and records every call."""
 
