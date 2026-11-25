@@ -59,4 +59,4 @@ def test_name_must_match_file(tmp_path):
 def test_shipped_catalog_loads():
     from pathlib import Path
     names = set(load_catalog(Path(__file__).parent.parent / "configs" / "models"))
-    assert names == {"lfm3", "sparkx26", "minicpm52b", "bitnet2b"}
+    assert names == {"lfm3", "sparkx26", "minicpm52b", "bitnet2b", "inklingmini"}

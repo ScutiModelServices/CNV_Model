@@ -8,7 +8,7 @@ Run the CNV_Model API, the bitnet.cpp sidecar and the load balancer on a separat
 ## Requirements on the machine
 
 - Docker + Compose v2, and ssh access (root over ssh is refused; use the normal user).
-- A reachable Ollama for the `lfm3`, `sparkx26` and `minicpm52b` models; API replicas share its model memory. Weights are downloaded from the admin page, not by hand.
+- A reachable Ollama for the `lfm3`, `sparkx26`, `minicpm52b` and `inklingmini` models; API replicas share its model memory. Weights are downloaded from the admin page, not by hand.
 - The Docker network `citadel_core` (the compose file joins it so other stacks can reach the service). If the Citadel stack is not on this machine: `docker network create citadel_core`.
 - The first `docker compose up --build` compiles bitnet.cpp for the sidecar (a few minutes, needs internet).
 
