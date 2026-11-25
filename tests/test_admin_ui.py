@@ -66,9 +66,11 @@ def test_create_and_revoke_a_token(page):
     page.click("#signin-button")
     page.click('#admin-nav a[href="#tokens"]')
     sync_api.expect(page.locator("#dashboard")).to_be_visible()
+    page.click("#new-token")
     page.fill("#name", "Garrison")
     page.click("#create-button")
     sync_api.expect(page.locator("#fresh-token")).to_contain_text("cnv_")
+    page.click("#drawer-close")
     row = page.locator("#rows tr:not(:has-text(\"playground (temporary)\"))")
     sync_api.expect(row).to_contain_text("Garrison")
     sync_api.expect(row.locator('td[data-label="Requests"]')).to_have_text("0")
@@ -89,10 +91,12 @@ def test_token_project_restrictions_are_refused(page):
     page.click("#signin-button")
     page.click('#admin-nav a[href="#tokens"]')
     sync_api.expect(page.locator("#dashboard")).to_be_visible()
+    page.click("#new-token")
     page.fill("#name", "Garrison")
+    page.click("#switch-projects")
     page.fill("#projects", "app-a")
     page.click("#create-button")
-    sync_api.expect(page.locator("#token-error")).not_to_be_empty()
+    sync_api.expect(page.locator("#token-form-error")).not_to_be_empty()
     sync_api.expect(page.locator("#rows tr:not(:has-text(\"playground (temporary)\"))")).to_have_count(0)
 
 
@@ -101,6 +105,7 @@ def test_token_can_be_edited_and_shows_rate_and_expiry(page):
     page.click("#signin-button")
     page.click('#admin-nav a[href="#tokens"]')
     sync_api.expect(page.locator("#dashboard")).to_be_visible()
+    page.click("#new-token")
     page.fill("#name", "Garrison")
     page.fill("#rate", "5")
     page.fill("#expires", "30")
@@ -108,8 +113,8 @@ def test_token_can_be_edited_and_shows_rate_and_expiry(page):
     row = page.locator("#rows tr:not(:has-text(\"playground (temporary)\"))")
     sync_api.expect(row).to_contain_text("5/min")
     sync_api.expect(row).to_contain_text("Expires")
+    page.click("#drawer-close")
     row.get_by_role("button", name="Edit").click()
-    page.fill("#edit-projects", "")
     page.fill("#edit-rate", "")
     page.click("#save-edit")
     sync_api.expect(row).not_to_contain_text("5/min")
@@ -172,7 +177,7 @@ def test_playground_uses_public_route_and_renders_answer(page):
 def test_connect_card_lists_the_addresses_other_services_can_use(page):
     page.fill("#admin", PASSWORD)
     page.click("#signin-button")
-    page.click('#admin-nav a[href="#connections"]')
+    page.click('#admin-nav a[href="#overview"]')
     sync_api.expect(page.locator("#dashboard")).to_be_visible()
     card = page.locator("#connect-card")
     sync_api.expect(card).to_contain_text("The address you opened this page with")
@@ -189,17 +194,22 @@ def test_sidebar_pages_keep_one_header_and_preserve_form_drafts(page):
     sync_api.expect(page.locator("#page-title")).to_have_text("Overview")
     sync_api.expect(page.locator("#create")).to_be_hidden()
     page.click('#admin-nav a[href="#tokens"]')
+    page.click("#new-token")
     page.fill("#name", "Keep this draft")
+    page.click("#drawer-expand")
+    sync_api.expect(page.locator("#name")).to_have_value("Keep this draft")
+    page.click("#drawer-close")
     page.click("#sidebar-toggle")
     sync_api.expect(page.locator("#sidebar-toggle")).to_have_attribute("aria-expanded", "false")
     sync_api.expect(page.locator("#name")).to_have_value("Keep this draft")
     page.click('#admin-nav a[href="#overview"]')
     page.click('#admin-nav a[href="#tokens"]')
+    page.click("#new-token")
     sync_api.expect(page.locator("#name")).to_have_value("Keep this draft")
-    sync_api.expect(page.locator("#page-title")).to_have_text("Access tokens")
+    sync_api.expect(page.locator("#page-title")).to_have_text("Tokens")
     assert page.locator("#dashboard h1").count() == 1
     page.reload()
-    sync_api.expect(page.locator("#page-title")).to_have_text("Access tokens")
+    sync_api.expect(page.locator("#page-title")).to_have_text("Tokens")
     sync_api.expect(page.locator("#sidebar-toggle")).to_have_attribute("aria-expanded", "false")
 
 
@@ -211,12 +221,12 @@ def test_sidebar_capabilities_and_history(page):
     tags = page.evaluate("CONFIG.tags")
     assert page.locator('#admin-nav a[href="#models"]').count() == int("project-models" in tags)
     assert page.locator('#admin-nav a[href="#voices"]').count() == int("voice-cloning" in tags)
-    page.click('#admin-nav a[href="#connections"]')
-    sync_api.expect(page.locator("#page-title")).to_have_text("Connections")
+    page.click('#admin-nav a[href="#updates"]')
+    sync_api.expect(page.locator("#page-title")).to_have_text("Updates")
     page.go_back()
     sync_api.expect(page.locator("#page-title")).to_have_text("Overview")
     page.go_forward()
-    sync_api.expect(page.locator("#page-title")).to_have_text("Connections")
+    sync_api.expect(page.locator("#page-title")).to_have_text("Updates")
     page.evaluate("location.hash = '#unsupported'")
     sync_api.expect(page.locator("#page-title")).to_have_text("Overview")
 
@@ -226,14 +236,23 @@ def test_sidebar_responsive_layout_and_keyboard_toggle(page):
     page.fill("#admin", PASSWORD)
     page.click("#signin-button")
     sync_api.expect(page.locator("#dashboard")).to_be_visible()
-    for width in (1280, 768, 375, 320):
+    for width in (1280, 768, 767, 375, 320):
         page.set_viewport_size({"width": width, "height": 900})
-        for expanded in (False, True):
-            page.locator("#sidebar-toggle").focus()
+        toggle = page.locator("#sidebar-toggle")
+        for _ in range(2):
+            expanded = toggle.get_attribute("aria-expanded") == "false"
+            toggle.focus()
             page.keyboard.press("Enter")
-            sync_api.expect(page.locator("#sidebar-toggle")).to_have_attribute("aria-expanded", str(expanded).lower())
+            sync_api.expect(toggle).to_have_attribute("aria-expanded", str(expanded).lower())
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-            assert page.locator("#admin-sidebar").bounding_box()["x"] < page.locator("#page-content").bounding_box()["x"]
+            sidebar = page.locator("#admin-sidebar").bounding_box()
+            content = page.locator("#page-content").bounding_box()
+            if width >= 768:
+                assert sidebar["x"] < content["x"]
+            elif expanded:
+                assert sidebar["y"] < content["y"]
+            else:
+                assert sidebar is None
 
 
 def test_playground_form_has_the_optional_request_fields(page):
@@ -258,7 +277,7 @@ def test_models_card_has_lifecycle_buttons_and_marketplace_page_lists_variants(p
     page.click("#signin-button")
     page.click('#admin-nav a[href="#variants"]')
     lfm3 = page.locator("#variant-list .m-card", has_text="Liquid LFM3 1.7B")
-    sync_api.expect(lfm3.get_by_role("button", name="Stop Liquid LFM3 1.7B")).to_be_enabled()
-    sync_api.expect(lfm3.get_by_role("button", name="Start Liquid LFM3 1.7B")).to_be_enabled()
+    sync_api.expect(lfm3.get_by_role("button", name="Turn off Liquid LFM3 1.7B")).to_be_enabled()
+    sync_api.expect(lfm3.get_by_role("button", name="Preload Liquid LFM3 1.7B")).to_be_enabled()
     page.click('#admin-nav a[href="#marketplace"]')
     sync_api.expect(page.locator("#market-card")).to_be_visible()

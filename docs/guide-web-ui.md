@@ -145,12 +145,12 @@ Chat sends messages to `POST /v1/chat`, with optional temperature, max_tokens an
 
 Open `/admin/` and sign in. Overview opens first; each sidebar destination has its own URL fragment and supports browser Back/Forward and direct links:
 
-- `#overview`: health, model readiness, replicas, active tokens and request counts.
-- `#playground`: service-specific request forms and streamed or media responses.
-- `#tokens`: create, edit, expire and revoke scoped access tokens.
-- `#runtime`: CPU threads where supported, replica information and live/restart settings.
-- `#updates`: check versions and explicitly download weights.
-- `#connections`: caller addresses and public endpoints.
-- `#models` and `#voices`: project models and cloned voices, shown only when supported.
+- **Overview** (`#overview`) shows readiness, replicas, token usage, caller addresses and API endpoints.
+- **Models** (`#variants`) shows lifecycle controls and expandable builds with fit, download, select and uninstall actions.
+- **Marketplace** (`#marketplace`) lists extra repository builds. Add a build through its detail drawer, then download it in Models.
+- **Tokens** (`#tokens`) lets you search, create, edit and revoke project tokens. Create and edit open in a right-side drawer.
+- **Settings** (`#runtime`) shows CPU threads, replica information and runtime settings.
+- **Updates** (`#updates`) shows installed builds and download activity. Individual downloads start in Models.
+- **Try it** (`#playground`) sends a request for a model ID you select explicitly.
 
-Collapse/Expand switches between labeled sidebar and icon rail on desktop and mobile. The non-secret sidebar preference is saved per service in this browser. Navigation preserves form drafts and active Playground requests; sign-out still clears credentials and cancels work. Page names appear once in the main header. No preview data or cross-service selector ships in the real admin UI. Existing authentication, quotas, settings precedence and explicit-download policy remain in effect.
+Use the header Sidebar button or Ctrl+B to switch between a labeled navigation list and an icon rail on desktop. On phones, the button opens navigation above the content. Profile holds Light, Dark, System and Sign out. Closing a detail drawer returns focus to its opener. Sign out clears credentials and cancels browser requests.
