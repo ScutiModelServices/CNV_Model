@@ -18,7 +18,7 @@ First start: open `/admin/` → **Models and builds** → **Download** on a buil
 
 While a download runs, the Models page shows a progress bar with the bytes done and, once known, the total and percent (`GET /admin/progress` returns `{active, label, done, total}`; every replica shows the same numbers through the shared data volume, and the bar comes back after a page reload). Only one download runs at a time: a second **Download** gets 409.
 
-**Delete** (`POST /admin/models/{name}/delete`) removes a downloaded build from its engine: `ollama` deletes it from Ollama's storage, `llamacpp` deletes the GGUF file. It asks for confirmation. The build a running model uses cannot be deleted (409): stop the model or run another build first. The bitnet.cpp sidecar keeps its open copy of a deleted file until `docker compose restart cnv_bitnet_server`, and then waits for the file again.
+**Uninstall** (`POST /admin/models/{name}/delete`; the page calls it Uninstall) removes a downloaded build from its engine: `ollama` deletes it from Ollama's storage, `llamacpp` deletes the GGUF file. It asks for confirmation. The build a running model uses cannot be deleted (409): stop the model or run another build first. A loaded model also refuses `PUT .../run` and `POST .../download` with 409 "stop it first"; other models are not affected. The bitnet.cpp sidecar keeps its open copy of a deleted file until `docker compose restart cnv_bitnet_server`, and then waits for the file again.
 
 ## Start, stop, restart
 

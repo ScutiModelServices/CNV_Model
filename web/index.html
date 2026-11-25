@@ -145,12 +145,10 @@ dialog input { width: 100%; }
 }
 .m-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 14px; }
 .m-panel { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); min-width: 0; }
-.m-card { container-type: inline-size; }
+.m-card { container-type: inline-size; overflow: hidden; }
 .m-pad { padding: 0 16px 14px; }
 .m-hardware { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 10px 15px; margin: 0 0 12px; font-size: .9em; }
-.m-download { padding: 13px 15px; margin-bottom: 12px; }
 .m-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; }
-.m-download progress { width: 100%; height: 6px; margin-top: 10px; }
 #variants-note, #market-note { color: var(--ok-text); font-size: .9em; margin: 12px 0; min-height: 0; }
 #variants-error, #market-error { color: var(--danger-text); font-size: .9em; margin: 12px 0; }
 #variants-note:empty, #market-note:empty, #variants-error:empty, #market-error:empty { display: none; }
@@ -176,7 +174,7 @@ dialog input { width: 100%; }
 .m-small.danger { color: var(--danger-text); border-color: currentColor; }
 .m-small[aria-disabled="true"] { color: var(--muted); background: var(--surface); border-color: var(--border); cursor: not-allowed; }
 .m-small[aria-disabled="true"]:hover { background: var(--surface); border-color: var(--border); }
-.m-builds { width: 100%; table-layout: auto; font-size: inherit; border-collapse: separate; border-spacing: 0; background: var(--bg); border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+.m-builds { width: 100%; table-layout: auto; font-size: inherit; border-collapse: separate; border-spacing: 0; background: var(--bg); }
 .m-builds th, .m-builds td { padding: 9px 12px; border-top: 1px solid var(--border); border-bottom: 0; text-align: left; vertical-align: middle; width: auto; }
 .m-builds thead th { font-size: .75em; font-weight: 600; color: var(--muted); background: var(--surface); white-space: nowrap; }
 .m-builds :is(th, td):first-child { padding-left: 16px; }
@@ -184,15 +182,23 @@ dialog input { width: 100%; }
 .m-builds .num { text-align: right; width: 100px; white-space: nowrap; font-family: var(--mono); font-size: .85em; font-variant-numeric: tabular-nums; }
 .m-builds thead .num { font-family: inherit; font-size: .75em; }
 .m-builds .m-right { text-align: right; }
-.m-builds tr:last-child :is(th, td):first-child { border-bottom-left-radius: var(--radius-lg); }
-.m-builds tr:last-child :is(th, td):last-child { border-bottom-right-radius: var(--radius-lg); }
 .m-builds tr[data-selected] { background: color-mix(in srgb, var(--accent) 4%, var(--bg)); }
-.m-builds .m-engine-cell { width: 254px; }
 .m-builds .m-actions-cell { width: 1%; white-space: nowrap; }
 .m-builds .m-actions-cell .m-actions { flex-wrap: nowrap; }
 .m-quant { white-space: nowrap; color: var(--accent); background: none; border: 0; padding: 2px; min-height: 0; text-align: left; text-decoration: underline; text-underline-offset: 3px; font-weight: 650; border-radius: var(--radius-sm); }
 .m-quant:hover { background: none; text-decoration-thickness: 2px; }
 .m-quant-text { font-weight: 650; }
+.m-row-link { cursor: pointer; }
+.m-row-link:hover { background: var(--code-bg); }
+.m-engine-col { color: var(--muted); }
+.m-icon { width: 34px; min-width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.m-icon svg { width: 16px; height: 16px; }
+.m-small.m-icon.on, .m-small.m-icon.on:hover { color: var(--ok-text); border-color: color-mix(in srgb, var(--ok-text) 70%, var(--bg)); background: color-mix(in srgb, var(--ok-text) 12%, var(--bg)); cursor: default; }
+.m-lifecycle button[aria-busy="true"] { color: var(--text); }
+.m-progress-tr td { padding: 0 16px 10px; border-top: 0; }
+.m-progress { height: 6px; border-radius: 100px; background: var(--border); overflow: hidden; }
+.m-progress-fill { width: var(--p, 0%); height: 100%; background: var(--accent); transition: width .4s var(--ease-out); }
+.m-progress-text { display: block; margin-top: 4px; text-align: right; font-size: .8em; color: var(--muted); }
 .m-note { font-size: .85em; font-style: italic; color: var(--muted); }
 .m-line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; }
 .m-line + .m-line { margin-top: 6px; }
@@ -217,12 +223,14 @@ dialog input { width: 100%; }
 @container (max-width: 890px) {
   .m-builds thead { position: absolute; clip-path: inset(50%); width: 1px; height: 1px; overflow: hidden; }
   .m-builds, .m-builds tbody { display: block; }
-  .m-builds tr { display: grid; grid-template-columns: minmax(0, 1fr) 100px 100px; align-items: start; gap: 6px 10px; border-top: 1px solid var(--border); padding: 10px 14px; }
+  .m-builds tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 6px 10px; border-top: 1px solid var(--border); padding: 10px 14px; }
+  .m-builds th[scope="row"] { grid-column: 1 / -1; }
+  .m-builds .m-progress-tr { border-top: 0; padding-top: 0; }
   .m-builds :is(th, td), .m-builds :is(th, td):first-child, .m-builds :is(th, td):last-child { display: block; padding: 0; border: 0; min-width: 0; width: auto; text-align: left; }
   .m-builds .num { text-align: right; }
   .m-builds .m-note { grid-column: 1 / -1; grid-row: 2; }
-  .m-builds .m-engine-cell, .m-builds .m-actions-cell { grid-column: 1 / -1; width: auto; }
-  .m-builds .m-engine-cell { margin-top: 2px; }
+  .m-builds .m-actions-cell { grid-column: 1 / -1; width: auto; }
+  .m-builds .m-progress-tr td { grid-column: 1 / -1; }
   .m-mobile-label { display: block; color: var(--muted); font: .75em/1.3 var(--sans); }
   .m-actions, .m-builds .m-actions-cell .m-actions { justify-content: flex-start; flex-wrap: wrap; }
   .m-builds .m-actions-cell { white-space: normal; }
@@ -231,9 +239,8 @@ dialog input { width: 100%; }
   .m-small, .m-quant, .m-help { min-height: 44px; min-width: 44px; }
   .m-pad { padding-inline: 12px; }
   .m-head { padding: 12px; }
-  .m-builds tr { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px 12px; }
-  .m-builds tbody th { grid-column: 1 / -1; }
-  .m-builds .num { width: 100px; grid-row: 3; justify-self: start; text-align: left; }
+  .m-builds tr { padding: 10px 12px; }
+  .m-builds .num { width: auto; grid-row: 3; justify-self: start; text-align: left; }
   .m-facts > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .m-lifecycle .m-state { flex-basis: 100%; }
 }
@@ -514,11 +521,9 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
 .pg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 @media (max-width: 1100px) { #playground { grid-template-columns: minmax(0, 1fr); } #playground > #pg-form, #playground > :not(#pg-title):not(#pg-form) { grid-column: 1; grid-row: auto; } }
 @media (max-width: 1000px) {
-  #dashboard, #dashboard.is-collapsed { --sidebar-width: 60px; }
-  .admin-nav a, #dashboard.is-collapsed .admin-nav a { justify-content: center; padding: 0; }
-  .admin-nav .nav-label, .toggle-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #dashboard { --sidebar-width: 168px; }
+  #dashboard.is-collapsed { --sidebar-width: 60px; }
   .admin-nav svg { display: block; }
-  #sidebar-toggle { justify-content: center; padding: 0; }
   #dashboard .header, #page-content { padding-inline: 20px; }
 }
 @media (max-width: 640px) {
@@ -661,7 +666,6 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
       <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><h2 id="variants-title">Models and builds</h2></div>
       <p class="description">Each model lists its builds below it, and each build the engines that can run it. Select the build and engine a model uses, then download its weights. Memory figures are estimates, not measurements.</p>
       <p id="variants-hardware" class="m-panel m-hardware"></p>
-      <div id="models-progress" class="m-panel m-download" hidden><div class="m-row"><strong id="models-progress-label"></strong><span id="models-progress-text" class="mono" role="status"></span></div><progress id="models-bar" max="100" aria-labelledby="models-progress-label"></progress></div>
       <p id="variants-note" role="status"></p>
       <p id="variants-error" role="alert"></p>
       <ul id="variant-list" class="m-list"></ul>
@@ -721,9 +725,9 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
   <footer class="drawer-foot"><button type="button" id="drawer-done">Close</button></footer>
 </aside>
 <dialog id="confirm-delete" aria-labelledby="confirm-title" aria-describedby="confirm-copy">
-  <h2 id="confirm-title">Delete weights?</h2>
+  <h2 id="confirm-title">Uninstall weights?</h2>
   <p id="confirm-copy" class="description"></p>
-  <form method="dialog" class="dialog-actions"><button value="cancel" autofocus>Cancel</button><button value="delete" class="danger">Delete</button></form>
+  <form method="dialog" class="dialog-actions"><button value="cancel" autofocus>Cancel</button><button value="delete" class="danger">Uninstall</button></form>
 </dialog>
 <script src="playground.js"></script>
 <script>
@@ -1220,8 +1224,8 @@ class AdminNavigation {
       note.textContent = "The host runtime manages CPU threads for this service. No live CPU thread control is available here.";
       this.pages.find(page => page.id === "runtime").view.insertBefore(note, $("threads-card"));
     }
-    let collapsed = false;
-    try { collapsed = localStorage.getItem(this.storageKey) === "true"; } catch {}
+    let collapsed = matchMedia("(max-width: 1000px)").matches;  // narrow screens start as the icon rail
+    try { const saved = localStorage.getItem(this.storageKey); if (saved !== null) collapsed = saved === "true"; } catch {}
     this.setCollapsed(collapsed);
     this.toggle.addEventListener("click", () => {
       const next = !this.dashboard.classList.contains("is-collapsed");
@@ -1283,18 +1287,13 @@ function renderVoices(data) {
 }
 let modelProgressTimer = 0, downloadingNow = false, activeDownload = false, lastVariants = null;
 function renderModelProgress(progress) {
-  const box = $("models-progress"), bar = $("models-bar");
   const active = Boolean(progress && progress.active);
-  box.hidden = !active;
+  if (active) lastProgress = progress;
   if (active !== activeDownload) {
     activeDownload = active;
-    if (lastVariants) renderVariants(lastVariants);  // Download buttons wait while one download runs
+    if (lastVariants) renderVariants(lastVariants);  // Download buttons wait while one download runs; the running row shows its bar
   }
-  if (!active) return;
-  const known = progress.total > 0, percent = known ? Math.min(100, Math.floor(progress.done * 100 / progress.total)) : null;
-  if (known) { bar.max = 100; bar.value = percent; } else bar.removeAttribute("value");
-  $("models-progress-label").textContent = "Downloading " + (progress.label || "weights");
-  $("models-progress-text").textContent = megabytes(progress.done) + (known ? " of " + megabytes(progress.total) + " (" + percent + "%)" : "");
+  paintRowProgress();
 }
 function watchModelProgress() {
   if (modelProgressTimer) return;
@@ -1357,7 +1356,7 @@ function openDrawer(trigger, title, ...body) {
 $("drawer-close").onclick = $("drawer-done").onclick = () => $("drawer").hidePopover();
 $("drawer").addEventListener("toggle", event => { if (event.newState === "closed" && drawerTrigger) { drawerTrigger.focus({preventScroll: true}); drawerTrigger = null; } });
 function askDelete(trigger, model, row, option) {
-  $("confirm-copy").textContent = "Delete the downloaded " + model.title + " " + row.title + " from " + option.engine + "? You can download it again later.";
+  $("confirm-copy").textContent = "Uninstall " + model.title + " " + row.title + " from " + option.engine + "? The downloaded weights are deleted; you can download them again later.";
   const dialog = $("confirm-delete");
   dialog.returnValue = "";
   dialog.onclose = async () => {
@@ -1366,7 +1365,7 @@ function askDelete(trigger, model, row, option) {
     $("variants-error").textContent = ""; $("variants-note").textContent = "";
     try {
       await call("POST", "models/" + model.name + "/delete", {quant: row.id, engine: option.engine}, 120000);
-      $("variants-note").textContent = "Deleted " + model.title + " " + row.title + " from " + option.engine + ".";
+      $("variants-note").textContent = "Uninstalled " + model.title + " " + row.title + " from " + option.engine + ".";
       await refreshVariants();
     } catch (error) { report(error, "variants-error"); }
   };
@@ -1385,11 +1384,29 @@ function enginePills(model, row, option) {
           option.downloaded ? mPill("Downloaded", "downloaded") : mPill("Not downloaded"),
           option.runs_on ? mPill("Runs on " + option.runs_on.toUpperCase()) : null];
 }
+const ICONS = {select: "M5 13l4 4L19 7", download: "M12 4v11m-5-5 5 5 5-5M5 20h14", trash: "M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"};
+function mIcon(name) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  const path = document.createElementNS(svg.namespaceURI, "path");
+  path.setAttribute("d", ICONS[name]);
+  svg.append(path);
+  return svg;
+}
+/** Icon button. `on` = this state is already true (green, cannot be pressed); `reason` = why it is blocked. */
+function mIconButton(name, aria, tip, {on = false, reason = "", kind = "", onclick}) {
+  const blocked = on || reason;
+  return mEl("button", {type: "button", class: "m-small m-icon" + (on ? " on" : "") + (kind ? " " + kind : ""), "aria-label": aria,
+                        "aria-disabled": blocked ? "true" : null, title: reason || tip, onclick: blocked ? null : onclick}, mIcon(name));
+}
 function modelAction(model, action, label, off, reason) {
   return mAction(label, label + " " + model.title, off ? reason : "", async event => {
     const button = event.currentTarget;
+    const group = button.closest(".m-lifecycle").querySelectorAll("button.m-small");
     $("variants-error").textContent = ""; $("variants-note").textContent = label + "ing " + model.title + "...";
-    button.setAttribute("aria-disabled", "true");
+    group.forEach(item => item.setAttribute("aria-disabled", "true"));
+    button.setAttribute("aria-busy", "true");  // the spinner in the shared button style
     try {
       const done = await call("POST", "models/" + model.name + "/" + action, undefined, 300000);
       $("variants-note").textContent = model.title + " is " + MODEL_STATES[done.state][1].toLowerCase() + ".";
@@ -1397,46 +1414,60 @@ function modelAction(model, action, label, off, reason) {
     } catch (error) { $("variants-note").textContent = ""; report(error, "variants-error"); await refreshVariants().catch(() => {}); }
   });
 }
-function buildRow(model, row) {
-  const selectedRow = row.engines.some(option => option.current);
-  const statuses = mEl("td", {class: "m-engine-cell"}, ...row.engines.map(option => mEl("div", {class: "m-line"},
-    mEl("span", {class: "mono m-engine"}, option.engine), ...enginePills(model, row, option),
-    option.fits === false ? mEl("p", {class: "m-reason"}, option.reason) : null)));
-  const actions = mEl("td", {class: "m-actions-cell"}, ...row.engines.map(option => {
-    const blocked = option.fits === false ? option.reason : "";
-    const inUse = option.current && model.state !== "stopped" && option.fits !== false;
+let downloadKey = "", lastProgress = null;
+function paintRowProgress() {
+  const bar = document.querySelector(".m-progress-tr");
+  if (!bar) return;
+  const known = lastProgress && lastProgress.total > 0, percent = known ? Math.min(100, Math.floor(lastProgress.done * 100 / lastProgress.total)) : 0;
+  bar.querySelector(".m-progress-fill").style.setProperty("--p", percent + "%");
+  bar.querySelector(".m-progress-text").textContent = (known ? percent + "% · " + megabytes(lastProgress.done) + " of " + megabytes(lastProgress.total) : "Starting…");
+}
+function buildRows(model, row) {
+  return row.engines.map(option => {
+    const key = model.name + "/" + row.id + "/" + option.engine;
     const where = model.title + " " + row.title + " on " + option.engine;
-    return mEl("div", {class: "m-actions"},
-      mAction("Select", "Select " + where, blocked || (option.current ? "Already selected" : ""), async () => {
+    const loaded = model.state === "running", stopFirst = "Stop the model first: it is loaded.";
+    const blocked = option.fits === false ? option.reason : "";
+    const downloading = activeDownload && lastProgress && (lastProgress.label === option.source || downloadKey === key);
+    const inUse = option.current && model.state !== "stopped" && option.fits !== false;
+    const quant = mEl("button", {type: "button", class: "m-quant mono", "aria-label": "Build details for " + where, onclick: event => buildDetails(event.currentTarget, model, row)}, row.title);
+    const actions = mEl("td", {class: "m-actions-cell"}, mEl("div", {class: "m-actions"},
+      mIconButton("select", "Select " + where, option.current ? "Selected" : "Select this build", {on: option.current, reason: blocked || (loaded ? stopFirst : ""), onclick: async () => {
         $("variants-error").textContent = ""; $("variants-note").textContent = "";
         try {
           const saved = await call("PUT", "models/" + model.name + "/run", {quant: row.id, engine: option.engine});
-          $("variants-note").textContent = "Selected " + row.title + " on " + option.engine + ". Every replica applies it within a second" + (saved.downloaded ? "." : "; press Download first (these weights are not downloaded yet).");
+          $("variants-note").textContent = "Selected " + row.title + " on " + option.engine + ". Every replica applies it within a second" + (saved.downloaded ? "." : "; download it first (these weights are not downloaded yet).");
           await refreshVariants();
         } catch (error) { report(error, "variants-error"); }
-      }),
-      mAction("Download", "Download " + where, blocked || (option.downloaded ? "Weights already downloaded" : activeDownload ? "Another download is running" : ""), async event => {
-        const button = event.currentTarget;
-        $("variants-error").textContent = ""; $("variants-note").textContent = "Downloading " + where + "...";
-        button.setAttribute("aria-disabled", "true");
-        downloadingNow = true;
+      }}),
+      mIconButton("download", "Download " + where, option.downloaded ? "Downloaded" : "Download the weights", {on: option.downloaded,
+        reason: blocked || (loaded ? stopFirst : activeDownload ? "Another download is running." : ""), onclick: async () => {
+        $("variants-error").textContent = ""; $("variants-note").textContent = "";
+        downloadKey = key; downloadingNow = true; activeDownload = true;
+        lastProgress = {label: option.source, done: 0, total: 0, active: true};
+        renderVariants(lastVariants);
         watchModelProgress();
         try {
           await call("POST", "models/" + model.name + "/download", {quant: row.id, engine: option.engine}, 3600000);
           $("variants-note").textContent = "Downloaded " + where + ".";
-          await refreshVariants();
-        } catch (error) { report(error, "variants-error"); button.removeAttribute("aria-disabled"); }
-        finally { downloadingNow = false; }
-      }),
-      mAction("Delete", "Delete " + where, !option.downloaded ? "Weights are not downloaded" : inUse ? "This build is in use: stop the model or select another build first." : "",
-        event => askDelete(event.currentTarget, model, row, option), "danger"));
-  }));
-  const name = mEl("th", {scope: "row"}, mEl("button", {type: "button", class: "m-quant mono", "aria-label": "Build details for " + row.title,
-    onclick: event => buildDetails(event.currentTarget, model, row)}, row.title));
-  return mEl("tr", {"data-selected": selectedRow ? "" : null}, name,
-    mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Memory est."), row.estimated_mb + " MB"),
-    mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Download size"), row.disk_mb + " MB"),
-    mEl("td", {class: "m-note"}, row.note), statuses, actions);
+        } catch (error) { report(error, "variants-error"); }
+        finally { downloadKey = ""; downloadingNow = false; await refreshVariants().catch(() => {}); }
+      }}),
+      mIconButton("trash", "Uninstall " + where, "Uninstall: delete the downloaded weights", {kind: "danger",
+        reason: !option.downloaded ? "Not downloaded." : loaded ? stopFirst : inUse ? "This build is in use: stop the model or select another build first." : "",
+        onclick: event => askDelete(event.currentTarget, model, row, option)})));
+    const tr = mEl("tr", {class: "m-row-link", "data-selected": option.current ? "" : null, onclick: event => { if (!event.target.closest("button")) quant.click(); }},
+      mEl("th", {scope: "row"}, quant),
+      mEl("td", {class: "m-note"}, row.note, option.fits === false ? mEl("p", {class: "m-reason"}, option.reason) : null),
+      mEl("td", {class: "num m-engine-col"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Engine"), option.engine),
+      mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Memory est."), row.estimated_mb + " MB"),
+      mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Download size"), row.disk_mb + " MB"),
+      actions);
+    if (!downloading) return [tr];
+    return [tr, mEl("tr", {class: "m-progress-tr"}, mEl("td", {colspan: "6"},
+      mEl("div", {class: "m-progress", role: "progressbar", "aria-label": "Download progress for " + where}, mEl("div", {class: "m-progress-fill"})),
+      mEl("span", {class: "m-progress-text mono", role: "status"})))];
+  });
 }
 function renderVariants(data) {
   lastVariants = data;
@@ -1453,11 +1484,12 @@ function renderVariants(data) {
         modelAction(model, "stop", "Stop", model.state === "stopped", "Model is already stopped"),
         modelAction(model, "restart", "Restart", model.state === "stopped", "Start the model first")));
     const table = mEl("table", {class: "m-builds", "aria-label": model.title + " builds"},
-      mEl("thead", {}, mEl("tr", {}, mEl("th", {scope: "col"}, "Build"), mEl("th", {scope: "col", class: "num"}, "Memory est."), mEl("th", {scope: "col", class: "num"}, "Download size"),
-        mEl("th", {scope: "col"}, "Note"), mEl("th", {scope: "col"}, "Engine"), mEl("th", {scope: "col", class: "m-right"}, "Actions"))),
-      mEl("tbody", {}, ...model.builds.map(row => buildRow(model, row))));
+      mEl("thead", {}, mEl("tr", {}, mEl("th", {scope: "col"}, "Build"), mEl("th", {scope: "col"}, "Note"), mEl("th", {scope: "col", class: "num"}, "Engine"),
+        mEl("th", {scope: "col", class: "num"}, "Memory est."), mEl("th", {scope: "col", class: "num"}, "Download size"), mEl("th", {scope: "col", class: "m-right"}, "Actions"))),
+      mEl("tbody", {}, ...model.builds.flatMap(row => buildRows(model, row)).flat()));
     return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, table);
   }));
+  paintRowProgress();
 }
 function renderMarket(data) {
   $("market-hardware").replaceChildren(mEl("strong", {}, "Hardware"), mEl("span", {class: "m-stat"}, data.summary));
