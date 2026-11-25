@@ -533,7 +533,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         entry = pick(name, body)
         if progress.snapshot()["active"]:
             raise HTTPException(409, "A download is running; wait for it to finish.")
-        if (body.quant, body.engine) == (router.quant_of(entry), router.engine_of(entry)) and name not in router.stopped:
+        runs_here = not builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags())  # a build this CPU cannot run is not in use
+        if runs_here and (body.quant, body.engine) == (router.quant_of(entry), router.engine_of(entry)) and name not in router.stopped:
             raise HTTPException(409, "This is the build the model runs: stop the model or run another build first.")
         try:
             await asyncio.to_thread(router.adapters[body.engine].delete, entry, body.quant)
