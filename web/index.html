@@ -1140,6 +1140,8 @@ function renderVariants(data) {
           const get = document.createElement("button");
           get.type = "button";
           get.textContent = "Download";
+          get.disabled = option.fits === false;  // the server refuses it too (409)
+          if (option.fits === false) get.title = option.reason;
           get.setAttribute("aria-label", "Download " + model.title + " " + row.title + " for " + option.engine);
           get.onclick = async () => {
             $("variants-error").textContent = ""; $("variants-note").textContent = "Downloading " + model.title + " " + row.title + " for " + option.engine + "...";
