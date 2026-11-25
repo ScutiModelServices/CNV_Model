@@ -7,5 +7,6 @@
 - Admin **Models** card: quantized builds under each model, live sizes from the Hub, per-build Use and Download.
 - Ollama address, GGUF folder and parallel generations are live admin settings (env variables only seed the first start).
 - `llamacpp` models carry their own sidecar `url` in the catalog; there is no `SERVICE_LLAMACPP_URL`.
+- A build lists the engines that can run it and the user chooses: **Run on <engine>** on the Models card, or `engine` in a request. Several models can stay loaded at once.
 - No default model: every request names its `model`, so there is no default setting, no warm-up and no Updates card (per-build Download replaces it).
 - Not carried over from the old services: JSON-schema output and project checkpoints (MiniCPM, BitNet), the transformers engine (BitNet).

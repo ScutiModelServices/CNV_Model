@@ -149,7 +149,7 @@ class OllamaAdapter:
         return urlparse(self.url).hostname in ("127.0.0.1", "localhost", "::1")
 
     def load(self, entry: ModelEntry, quant: str) -> OllamaLoaded:
-        return OllamaLoaded(self.url, entry.source(quant), live=self._live)
+        return OllamaLoaded(self.url, entry.source(quant, "ollama"), live=self._live)
 
     def downloaded(self) -> set[str]:
         """Names of every model Ollama has on disk, with and without an implicit `:latest`."""
@@ -163,14 +163,14 @@ class OllamaAdapter:
     def download(self, entry: ModelEntry, quant: str) -> None:
         from progress import ollama_pull_progress
 
-        model = entry.source(quant)
+        model = entry.source(quant, "ollama")
         with _call(self.url, "/api/pull", {"model": model, "stream": True}, 3600) as response:
             status = ollama_pull_progress(response, model)
         if status != "success":
             raise _unavailable(model)
 
     def local_ref(self, entry: ModelEntry, quant: str) -> str | None:
-        model = entry.source(quant)
+        model = entry.source(quant, "ollama")
         reply = _json_call(self.url, "/api/tags", None, 15, model)
         try:
             digest = next((m["digest"] for m in reply["models"] if m["name"] in (model, f"{model}:latest")), None)
@@ -180,7 +180,7 @@ class OllamaAdapter:
 
     def remote_ref(self, entry: ModelEntry, quant: str) -> str:
         """Hash the registry manifest bytes, matching Ollama's installed digest."""
-        name, host = entry.source(quant), "registry.ollama.ai"
+        name, host = entry.source(quant, "ollama"), "registry.ollama.ai"
         if name.startswith(("hf.co/", "huggingface.co/")):
             host, name = name.split("/", 1)
         name, separator, tag = name.partition(":")

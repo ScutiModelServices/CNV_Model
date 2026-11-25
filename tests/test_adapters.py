@@ -3,7 +3,8 @@ from catalog import Build, ModelEntry
 from adapters.llamacpp import LlamaCppAdapter
 from adapters.ollama import OllamaAdapter
 
-ENTRY = ModelEntry("bitnet2b", "BitNet", "llamacpp", "org/bitnet", "i2_s", frozenset(), (Build("i2_s", 1200, ref="bitnet-i2_s.gguf"),), "http://llama:8080")
+ENTRY = ModelEntry("bitnet2b", "BitNet", "org/bitnet", "i2_s", frozenset(),
+                   (Build("i2_s", 1200, engines={"llamacpp": {"ref": "bitnet-i2_s.gguf", "url": "http://llama:8080"}}),))
 REPLY = {"choices": [{"message": {"content": " hi "}, "finish_reason": "stop"}], "usage": {"prompt_tokens": 3, "completion_tokens": 1}}
 
 

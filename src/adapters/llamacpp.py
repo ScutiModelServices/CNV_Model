@@ -89,9 +89,9 @@ class LlamaCppAdapter:
         return reply
 
     def load(self, entry: ModelEntry, quant: str) -> _Loaded:
-        if not (self.models_dir / entry.source(quant)).is_file():
+        if not (self.models_dir / entry.source(quant, "llamacpp")).is_file():
             raise EngineError(UNAVAILABLE, 503)
-        return _Loaded(self, entry.source(quant), entry.url)
+        return _Loaded(self, entry.source(quant, "llamacpp"), entry.url(quant, "llamacpp"))
 
     def downloaded(self) -> set[str]:
         return {path.relative_to(self.models_dir).as_posix() for path in self.models_dir.rglob("*.gguf")} if self.models_dir.is_dir() else set()
@@ -99,14 +99,14 @@ class LlamaCppAdapter:
     def download(self, entry: ModelEntry, quant: str) -> None:
         from progress import progress  # shared download progress, same one the Ollama pull reports to
 
-        target = self.models_dir / entry.source(quant)
+        target = self.models_dir / entry.source(quant, "llamacpp")
         target.parent.mkdir(parents=True, exist_ok=True)
         part = target.with_name(target.name + ".part")
-        request = urllib.request.Request(f"{HUB}/{entry.repo}/resolve/main/{entry.build(quant).ref}")
+        request = urllib.request.Request(f"{HUB}/{entry.repo}/resolve/main/{entry.build(quant).engines["llamacpp"]["ref"]}")
         try:
             with urllib.request.urlopen(request, timeout=60) as response, part.open("wb") as out:
                 done = 0
-                progress.start(entry.source(quant), int(response.headers.get("Content-Length") or 0) or None)
+                progress.start(entry.source(quant, "llamacpp"), int(response.headers.get("Content-Length") or 0) or None)
                 while chunk := response.read(1 << 20):
                     out.write(chunk)
                     done += len(chunk)
@@ -119,11 +119,11 @@ class LlamaCppAdapter:
         part.replace(target)
 
     def local_ref(self, entry: ModelEntry, quant: str) -> str | None:
-        path = self.models_dir / entry.source(quant)
+        path = self.models_dir / entry.source(quant, "llamacpp")
         return str(path.stat().st_size) if path.is_file() else None
 
     def remote_ref(self, entry: ModelEntry, quant: str) -> str:
-        request = urllib.request.Request(f"{HUB}/{entry.repo}/resolve/main/{entry.build(quant).ref}", method="HEAD")
+        request = urllib.request.Request(f"{HUB}/{entry.repo}/resolve/main/{entry.build(quant).engines["llamacpp"]["ref"]}", method="HEAD")
         try:
             with urllib.request.urlopen(request, timeout=15) as response:
                 return response.headers.get("Content-Length", "")

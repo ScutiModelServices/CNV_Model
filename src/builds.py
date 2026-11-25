@@ -34,21 +34,26 @@ def place(need_mb: int, hardware: dict[str, Any]) -> tuple[str | None, str]:
     return None, f"Needs about {need_mb} MB; {free} MB of memory{gpu_text} is free."
 
 
-def listing(entry: ModelEntry, hardware: dict[str, Any] | None, current: str,
-            downloaded: set[str], live: dict[str, int]) -> list[dict[str, Any]]:
-    """Every build of `entry`, smallest first. `hardware` is None when the engine is on another machine."""
+def listing(entry: ModelEntry, hardware: dict[str, dict[str, Any] | None], current: tuple[str, str],
+            downloaded: dict[str, set[str]], live: dict[str, int]) -> list[dict[str, Any]]:
+    """Every build of `entry`, smallest first, each with the engines that can run it. `hardware[engine]` is what that
+    engine's machine has (None when it is another machine); `downloaded[engine]` the sources it has on disk;
+    `current` is the (build, engine) the user runs now."""
     rows = []
     for build in entry.builds:
         mb = live.get(build.quant, build.file_mb)
-        need, name = estimate_mb(mb), entry.source(build.quant)
-        in_use, done = build.quant == current, name in downloaded
-        where, reason = place(need, hardware) if hardware is not None else (None, REMOTE)
-        fits = True if in_use or where else (None if reason in (UNKNOWN, REMOTE) else False)
-        runs = {"gpu": " · runs on the GPU", "cpu": " · runs on the CPU (slower)"}.get(where, "")
-        rows.append({"id": build.quant, "title": build.quant, "quant": build.quant, "model": name, "note": build.note,
-                     "detail": f"about {need} MB · {mb} MB download{' · downloaded' if done else ''}{runs} · {build.note}",
-                     "disk_mb": mb, "estimated_mb": need, "runs_on": where, "fits": fits,
-                     "reason": "" if in_use or fits else reason, "downloaded": done, "current": in_use})
+        need = estimate_mb(mb)
+        options = []
+        for engine in build.engines:
+            in_use = (build.quant, engine) == current
+            hw = hardware.get(engine)
+            where, reason = place(need, hw) if hw is not None else (None, REMOTE)
+            fits = True if in_use or where else (None if reason in (UNKNOWN, REMOTE) else False)
+            options.append({"engine": engine, "current": in_use, "fits": fits, "reason": "" if in_use or fits else reason,
+                            "runs_on": where, "downloaded": entry.source(build.quant, engine) in downloaded.get(engine, set())})
+        rows.append({"id": build.quant, "title": build.quant, "quant": build.quant, "note": build.note,
+                     "detail": f"about {need} MB · {mb} MB download · {build.note}",
+                     "disk_mb": mb, "estimated_mb": need, "current": build.quant == current[0], "engines": options})
     return sorted(rows, key=lambda row: row["estimated_mb"])
 
 

@@ -62,9 +62,10 @@ def test_stream_unknown_model_is_404():
     assert client().post("/v1/chat", json={**BODY, "model": "zzz", "stream": True}).status_code == 404
 
 
-def test_models_lists_capabilities():
+def test_models_lists_capabilities_and_engines_per_build():
     rows = client().get("/v1/models").json()
     lfm3 = next(r for r in rows if r["name"] == "lfm3")
+    assert lfm3["engine"] == "ollama" and {"quant": "Q8_0", "engines": ["ollama"]} in lfm3["builds"]
     assert "tools" in lfm3["capabilities"] and {r["name"] for r in rows} >= {"bitnet2b", "minicpm52b", "sparkx26"}
 
 
@@ -73,25 +74,38 @@ def test_admin_models_lists_builds_under_each_model():
     assert c.get("/admin/models").status_code == 401
     rows = c.get("/admin/models", headers=ADMIN).json()["models"]
     lfm3 = next(r for r in rows if r["name"] == "lfm3")
-    assert [b["id"] for b in lfm3["builds"]][0] == "Q4_K_M" and all("downloaded" in b for b in lfm3["builds"])
-    assert lfm3["current_quant"] == "Q4_K_M"
+    assert [b["id"] for b in lfm3["builds"]][0] == "Q4_K_M"
+    assert lfm3["current_quant"] == "Q4_K_M" and lfm3["current_engine"] == "ollama"
+    assert [e["engine"] for e in lfm3["builds"][0]["engines"]] == ["ollama"] and "downloaded" in lfm3["builds"][0]["engines"][0]
 
 
-def test_set_quant_saves_and_applies(tmp_path):
+def test_run_saves_the_build_and_engine_the_user_chose(tmp_path):
     router = make_router()
     store = TokenStore(str(tmp_path / "tokens.json"))
     c = TestClient(create_app(router, "pw", tokens=store, fetch_sizes=no_hub))
-    assert c.put("/admin/models/lfm3/quant", json={"quant": "Q1"}, headers=ADMIN).status_code == 422
-    assert c.put("/admin/models/zzz/quant", json={"quant": "Q4_K_M"}, headers=ADMIN).status_code == 404
-    assert c.put("/admin/models/lfm3/quant", json={"quant": "Q8_0"}, headers=ADMIN).status_code == 200
+
+    def run(name, quant, engine):
+        return c.put(f"/admin/models/{name}/run", json={"quant": quant, "engine": engine}, headers=ADMIN)
+
+    assert run("lfm3", "Q1", "ollama").status_code == 422
+    assert run("lfm3", "Q8_0", "llamacpp").status_code == 422  # the build does not list that engine
+    assert run("zzz", "Q4_K_M", "ollama").status_code == 404
+    assert run("lfm3", "Q8_0", "ollama").status_code == 200
     token = {"X-Internal-Token": store.create("t")["token"]}
-    assert c.post("/v1/chat", json=BODY, headers=token).json()["quant"] == "Q8_0"
+    body = c.post("/v1/chat", json=BODY, headers=token).json()
+    assert (body["quant"], body["engine"]) == ("Q8_0", "ollama")
+
+
+def test_request_engine_must_be_listed_by_the_build():
+    c = client()
+    assert c.post("/v1/chat", json={**BODY, "engine": "llamacpp"}).status_code == 422
+    assert c.post("/v1/chat", json={**BODY, "engine": "ollama"}).json()["engine"] == "ollama"
 
 
 def test_download_goes_to_the_models_engine():
     router = make_router()
     c = client(router, admin_password="pw")
-    assert c.post("/admin/models/bitnet2b/download", json={"quant": "i2_s"}, headers=ADMIN).status_code == 200
+    assert c.post("/admin/models/bitnet2b/download", json={"quant": "i2_s", "engine": "llamacpp"}, headers=ADMIN).status_code == 200
     assert router.adapters["llamacpp"].downloads == [("bitnet2b", "i2_s")]
 
 

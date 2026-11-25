@@ -136,6 +136,8 @@ dialog input { width: 100%; }
 .update-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .85em; overflow-wrap: anywhere; }
 .model-group { display: block; border-bottom: 1px solid var(--border); padding: 8px 0; }
 .model-group > .update-list { margin: 6px 0 0; }
+.build-row { flex-direction: column; }
+.engine-option { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding-left: 12px; }
 .update-list .new { color: var(--warning); font-weight: 600; }
 .update-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
 dialog { width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow-y: auto; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-xl); background: var(--surface); color: var(--text); }
@@ -445,7 +447,7 @@ progress { accent-color: var(--accent); border-radius: var(--radius-full); }
     </section>
     <section id="variants-card" class="card" aria-labelledby="variants-title" hidden>
       <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><h2 id="variants-title">Models and builds</h2></div>
-      <p class="description">Each model lists its quantized builds below it. Use one build per model; only builds this machine can run can be chosen. Download fetches the weights. The memory figures are estimates, not measurements.</p>
+      <p class="description">Each model lists its builds (original and quantized) below it, and under each build the engines that can run it. Pick the engine you want to run a build on. Download fetches the weights. The memory figures are estimates, not measurements.</p>
       <p id="variants-hardware" class="description"></p>
       <ul id="variant-list" class="update-list"></ul>
       <p id="variants-note" class="saved" role="status"></p>
@@ -495,7 +497,7 @@ progress { accent-color: var(--accent); border-radius: var(--radius-full); }
 <script src="playground.js"></script>
 <script>
 // Per-service configuration. The rest of this page is shared verbatim.
-const CONFIG = {tags: ["cpu", "streaming", "variants"], connect: {host: "cnv_model_lb", port: 29204}, title: "CNV_Model", address: location.origin, threadLabel: "CPU threads", threadField: "num_thread", adminEnv: "SERVICE_ADMIN_PASSWORD", replicasEnv: "SERVICE_REPLICAS", extraTile: {label: "Ollama parallel requests", field: "ollama_parallel"}, updates: false, playground: {"operations":[{"label":"Chat","route":"/v1/chat","method":"POST","fields":[{"key":"model","label":"Model","type":"text","required":true,"maxLength":64,"default":"lfm3"},{"key":"messages.0.role","label":"Role","type":"select","options":["user","system","assistant"],"default":"user"},{"key":"messages.0.content","label":"Message","type":"textarea","required":true,"maxLength":100000,"default":"Hello!"},{"key":"temperature","label":"Temperature","type":"number","min":0,"max":2,"step":0.1,"default":0},{"key":"max_tokens","label":"Maximum tokens","type":"number","min":1,"max":4096,"step":1,"default":512},{"key":"stream","label":"Stream response","type":"checkbox","default":true},{"key":"tools","label":"Tools (optional)","type":"json"}],"response":"stream","encoding":"json"}]}};
+const CONFIG = {tags: ["cpu", "streaming", "variants"], connect: {host: "cnv_model_lb", port: 29204}, title: "CNV_Model", address: location.origin, threadLabel: "CPU threads", threadField: "num_thread", adminEnv: "SERVICE_ADMIN_PASSWORD", replicasEnv: "SERVICE_REPLICAS", extraTile: {label: "Ollama parallel requests", field: "ollama_parallel"}, updates: false, playground: {"operations":[{"label":"Chat","route":"/v1/chat","method":"POST","fields":[{"key":"model","label":"Model","type":"text","required":true,"maxLength":64,"default":"lfm3"},{"key":"engine","label":"Engine (empty = the one you chose)","type":"text","maxLength":32},{"key":"messages.0.role","label":"Role","type":"select","options":["user","system","assistant"],"default":"user"},{"key":"messages.0.content","label":"Message","type":"textarea","required":true,"maxLength":100000,"default":"Hello!"},{"key":"temperature","label":"Temperature","type":"number","min":0,"max":2,"step":0.1,"default":0},{"key":"max_tokens","label":"Maximum tokens","type":"number","min":1,"max":4096,"step":1,"default":512},{"key":"stream","label":"Stream response","type":"checkbox","default":true},{"key":"tools","label":"Tools (optional)","type":"json"}],"response":"stream","encoding":"json"}]}};
 
 const $ = id => document.getElementById(id);
 const storageKey = CONFIG.title + ":admin";
@@ -1054,44 +1056,53 @@ function renderVariants(data) {
     const group = document.createElement("li");
     group.className = "model-group";
     const head = document.createElement("strong");
-    head.textContent = model.title + " · " + model.engine + "" + (model.capabilities.length ? " · " + model.capabilities.join(", ") : "");
+    head.textContent = model.title + " · running " + model.current_quant + " on " + model.current_engine + (model.capabilities.length ? " · " + model.capabilities.join(", ") : "");
     const list = document.createElement("ul");
     list.className = "update-list";
     list.setAttribute("aria-label", model.title + " builds");
     list.append(...model.builds.map(row => {
       const item = document.createElement("li");
+      item.className = "build-row";
       const text = document.createElement("span");
-      text.textContent = row.title + " · " + row.detail + (row.fits === true ? "" : " · " + row.reason);
+      text.textContent = row.title + " · " + row.detail;
       item.append(text);
-      const use = document.createElement("button");
-      use.type = "button";
-      use.textContent = row.current ? "In use" : "Use";
-      use.disabled = row.current || row.fits === false;
-      use.setAttribute("aria-label", (row.current ? "In use: " : "Use ") + model.title + " " + row.title);
-      use.onclick = async () => {
-        $("variants-error").textContent = ""; $("variants-note").textContent = "";
-        try {
-          const saved = await call("PUT", "models/" + model.name + "/quant", {quant: row.id});
-          $("variants-note").textContent = "Saved. Every replica applies it within a second" + (saved.downloaded ? "." : "; press Download on this build first (these weights are not downloaded yet).");
-          await refreshVariants();
-        } catch (error) { report(error, "variants-error"); }
-      };
-      item.append(use);
-      if (!row.downloaded) {
-        const get = document.createElement("button");
-        get.type = "button";
-        get.textContent = "Download";
-        get.setAttribute("aria-label", "Download " + model.title + " " + row.title);
-        get.onclick = async () => {
-          $("variants-error").textContent = ""; $("variants-note").textContent = "Downloading " + model.title + " " + row.title + "...";
-          get.disabled = true;
+      for (const option of row.engines) {
+        const box = document.createElement("span");
+        box.className = "engine-option";
+        const label = document.createElement("span");
+        label.textContent = option.engine + (option.fits === false ? " · " + option.reason : "") + (option.runs_on ? " · " + option.runs_on.toUpperCase() : "") + (option.downloaded ? " · downloaded" : "");
+        box.append(label);
+        const use = document.createElement("button");
+        use.type = "button";
+        use.textContent = option.current ? "Running" : "Run on " + option.engine;
+        use.disabled = option.current || option.fits === false;
+        use.setAttribute("aria-label", (option.current ? "Running: " : "Run ") + model.title + " " + row.title + " on " + option.engine);
+        use.onclick = async () => {
+          $("variants-error").textContent = ""; $("variants-note").textContent = "";
           try {
-            await call("POST", "models/" + model.name + "/download", {quant: row.id}, 3600000);
-            $("variants-note").textContent = "Downloaded " + model.title + " " + row.title + ".";
+            const saved = await call("PUT", "models/" + model.name + "/run", {quant: row.id, engine: option.engine});
+            $("variants-note").textContent = "Saved. Every replica applies it within a second" + (saved.downloaded ? "." : "; press Download for this engine first (these weights are not downloaded yet).");
             await refreshVariants();
-          } catch (error) { report(error, "variants-error"); get.disabled = false; }
+          } catch (error) { report(error, "variants-error"); }
         };
-        item.append(get);
+        box.append(use);
+        if (!option.downloaded) {
+          const get = document.createElement("button");
+          get.type = "button";
+          get.textContent = "Download";
+          get.setAttribute("aria-label", "Download " + model.title + " " + row.title + " for " + option.engine);
+          get.onclick = async () => {
+            $("variants-error").textContent = ""; $("variants-note").textContent = "Downloading " + model.title + " " + row.title + " for " + option.engine + "...";
+            get.disabled = true;
+            try {
+              await call("POST", "models/" + model.name + "/download", {quant: row.id, engine: option.engine}, 3600000);
+              $("variants-note").textContent = "Downloaded " + model.title + " " + row.title + " for " + option.engine + ".";
+              await refreshVariants();
+            } catch (error) { report(error, "variants-error"); get.disabled = false; }
+          };
+          box.append(get);
+        }
+        item.append(box);
       }
       return item;
     }));

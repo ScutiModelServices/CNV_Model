@@ -1,8 +1,28 @@
 {
-  "name": "sparkx26", "title": "Spark X2.6 1.7B", "engine": "ollama", "repo": "XHToken/Spark-X2.6-1.7B-GGUF",
-  "default_quant": "Q4_K_M", "capabilities": ["tools", "thinking"],
+  "name": "sparkx26",
+  "title": "Spark X2.6 1.7B",
+  "repo": "XHToken/Spark-X2.6-1.7B-GGUF",
+  "default_quant": "Q4_K_M",
+  "capabilities": [
+    "tools",
+    "thinking"
+  ],
   "builds": [
-    {"quant": "Q4_K_M", "file_mb": 1686, "note": "The usual choice: smaller, little quality loss."},
-    {"quant": "Q8_0", "file_mb": 1735, "note": "Almost the original; only a little larger on disk."}
+    {
+      "quant": "Q4_K_M",
+      "file_mb": 1686,
+      "note": "The usual choice: smaller, little quality loss.",
+      "engines": {
+        "ollama": {}
+      }
+    },
+    {
+      "quant": "Q8_0",
+      "file_mb": 1735,
+      "note": "Almost the original; only a little larger on disk.",
+      "engines": {
+        "ollama": {}
+      }
+    }
   ]
 }

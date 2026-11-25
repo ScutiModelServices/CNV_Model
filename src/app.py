@@ -61,6 +61,7 @@ class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")  # schema, project and thinking are refused, not silently ignored
 
     model: str = Field(min_length=1, max_length=64)  # a catalog name; every request names its model
+    engine: str | None = Field(None, max_length=32)  # one the model's current build lists; none = the user's saved choice
     messages: list[Message] = Field(min_length=1, max_length=64)
     tools: list[Tool] | None = Field(None, max_length=32)
     temperature: float = Field(0.0, ge=0, le=2)
@@ -97,8 +98,9 @@ class TokenScope(BaseModel):
     rate: int | None = Field(None, ge=1, le=100_000)
 
 
-class QuantChoice(BaseModel):
+class Choice(BaseModel):
     quant: str = Field(min_length=1, max_length=64)
+    engine: str = Field(min_length=1, max_length=32)
 
 
 class Threads(BaseModel):
@@ -111,7 +113,7 @@ def _hub_json(url: str) -> list[dict[str, Any]]:
 
 
 def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRouter:
-    """The catalog, one adapter per engine, and the saved quantizations."""
+    """The catalog, one adapter per engine, and the saved build and engine choices."""
     folder = Path(os.environ.get("SERVICE_CONFIGS_DIR", Path(__file__).resolve().parents[1] / "configs" / "models"))
     catalog = load_catalog(folder)
 
@@ -129,7 +131,9 @@ def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRou
                 "llamacpp": LlamaCppAdapter(Path(option("models_dir")))}
     saved = settings.load(tokens.settings_path).get("quants") or {}
     quants = {name: quant for name, quant in saved.items() if name in catalog and any(b.quant == quant for b in catalog[name].builds)}
-    return ModelRouter(catalog, adapters, quants, option("ollama_parallel"))
+    engines = {name: engine for name, engine in (settings.load(tokens.settings_path).get("engines") or {}).items()
+               if name in catalog and engine in catalog[name].engines(quants.get(name, catalog[name].default_quant))}
+    return ModelRouter(catalog, adapters, quants, option("ollama_parallel"), engines)
 
 
 def create_app(router: ModelRouter | None = None, admin_password: str | None = None,
@@ -190,9 +194,13 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
                 router.forget()
             if config.get("ollama_parallel") != router.parallel:
                 router.set_parallel(config.get("ollama_parallel"))
-            for name, quant in (saved.get("quants") or {}).items():
-                if name in router.catalog and quant != router.quant_of(router.catalog[name]) and any(b.quant == quant for b in router.catalog[name].builds):
-                    router.set_quant(name, quant)
+            for name in router.catalog:
+                entry = router.catalog[name]
+                quant = (saved.get("quants") or {}).get(name, entry.default_quant)
+                engine = (saved.get("engines") or {}).get(name)
+                if quant in {b.quant for b in entry.builds} and engine in entry.engines(quant) \
+                        and (quant, engine) != (router.quant_of(entry), router.engines.get(name)):
+                    router.set_choice(name, quant, engine)
             current = await asyncio.to_thread(read_marker)
             if current != seen:
                 seen = current
@@ -250,8 +258,9 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     @app.get("/v1/models", dependencies=[Depends(authorize)])
     async def models() -> list[dict[str, Any]]:
-        return [{"name": e.name, "title": e.title, "engine": e.engine, "capabilities": sorted(e.capabilities),
-                 "quant": router.quant_of(e)} for e in router.catalog.values()]
+        return [{"name": e.name, "title": e.title, "capabilities": sorted(e.capabilities), "quant": router.quant_of(e),
+                 "engine": router.engine_of(e), "builds": [{"quant": b.quant, "engines": list(b.engines)} for b in e.builds]}
+                for e in router.catalog.values()]
 
     def build(reply: dict[str, Any], started: float) -> dict[str, Any]:
         calls = [{"id": call.get("id") or f"call_{index}", "name": call["function"]["name"],
@@ -259,14 +268,14 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
                  for index, call in enumerate(reply.get("tool_calls") or [])
                  if isinstance(call.get("function"), dict) and call["function"].get("name")]
         return {"content": reply["content"], "tool_calls": calls, "finish_reason": "tool_calls" if calls else reply["finish"],
-                "model": reply["model"], "quant": reply["quant"],
+                "model": reply["model"], "quant": reply["quant"], "engine": reply["engine"],
                 "usage": {"input_tokens": reply["prompt_tokens"], "output_tokens": reply["completion_tokens"]},
                 "duration_ms": round((time.perf_counter() - started) * 1000)}
 
     def cache_key(body: ChatRequest) -> str:
         """Include the model generation so pulls invalidate old answers."""
         entry = router.entry(body.model)
-        part = [router.generation, entry.name, router.quant_of(entry), [m.model_dump() for m in body.messages], body.max_tokens,
+        part = [router.generation, entry.name, router.quant_of(entry), router.engine_of(entry, body.engine), [m.model_dump() for m in body.messages], body.max_tokens,
                 [t.model_dump() for t in body.tools or []],
                 config.get("thinking") if config else os.environ.get("SERVICE_THINKING", "off"),
                 config.get("hide_reasoning") if config else os.environ.get("SERVICE_HIDE_REASONING", "true")]
@@ -327,9 +336,11 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
                    _slot: None = Depends(slot)) -> Any:
         started = time.perf_counter()
         try:
-            router.entry(body.model)
+            router.engine_of(router.entry(body.model), body.engine)
         except UnknownModel:
             raise HTTPException(404, "Unknown model") from None
+        except CapabilityError as error:
+            raise HTTPException(422, str(error)) from None
         size = cache_limit() if body.temperature == 0 else 0  # a higher temperature asks for a different answer each time
         key = cache_key(body) if size else None
         kept = cache.get(key, size) if key else None
@@ -343,7 +354,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         extra = {"tools": [_ollama_tool(t) for t in body.tools]} if body.tools else {}  # only sent when used
         try:
             if body.stream:
-                events = router.chat_stream(body.model, messages, temperature=body.temperature, max_tokens=body.max_tokens, **extra)
+                events = router.chat_stream(body.model, messages, engine=body.engine, temperature=body.temperature, max_tokens=body.max_tokens, **extra)
                 try:
                     first = await first_piece(request, events, None)  # waited for here, so a refusal is still an HTTP error
                 except CallerGone:
@@ -353,7 +364,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
                     await events.aclose()
                     raise
                 return ndjson(live_lines(events, first, started, key, size), "miss")
-            reply = await router.chat(body.model, messages, temperature=body.temperature, max_tokens=body.max_tokens, **extra)
+            reply = await router.chat(body.model, messages, engine=body.engine, temperature=body.temperature, max_tokens=body.max_tokens, **extra)
         except CapabilityError as error:
             raise HTTPException(422, str(error)) from None
         except EngineError as error:
@@ -376,64 +387,68 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         return {"num_thread": threads}
 
     async def model_rows() -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-        """Every model with its builds under it: size, fit on this machine, downloaded. Read when asked, never cached."""
-        probed: dict[bool, Any] = {}
+        """Every model with its builds under it, and under each build the engines that can run it: size, fit, downloaded.
+        Read when asked, never cached."""
+        machine = await asyncio.to_thread(hardware.probe) if any(a.same_machine for a in router.adapters.values()) else None
+        on_disk: dict[str, set[str]] = {}
+        for engine, adapter in router.adapters.items():
+            try:
+                on_disk[engine] = await asyncio.to_thread(adapter.downloaded)
+            except EngineError:
+                on_disk[engine] = set()
+        hw = {engine: machine if adapter.same_machine else None for engine, adapter in router.adapters.items()}
         sizes_file = Path(tokens.settings_path).parent / "hub-sizes.json"
         rows = []
         for entry in router.catalog.values():
-            adapter = router.adapters[entry.engine]
-            if adapter.same_machine and True not in probed:
-                probed[True] = await asyncio.to_thread(hardware.probe)
-            hw = probed.get(True) if adapter.same_machine else None
-            try:
-                have = await asyncio.to_thread(adapter.downloaded)
-            except EngineError:
-                have = set()
             live = await asyncio.to_thread(builds.cached_sizes, sizes_file, entry.repo, fetch_sizes, time.time())
-            current = router.quant_of(entry)
-            rows.append({"name": entry.name, "title": entry.title, "engine": entry.engine, "capabilities": sorted(entry.capabilities),
-                         "current_quant": current,
-                         "builds": builds.listing(entry, hw, current, have, live)})
-        return probed.get(True), rows
+            current = (router.quant_of(entry), router.engine_of(entry))
+            rows.append({"name": entry.name, "title": entry.title, "capabilities": sorted(entry.capabilities),
+                         "current_quant": current[0], "current_engine": current[1],
+                         "builds": builds.listing(entry, hw, current, on_disk, live)})
+        return machine, rows
 
     @app.get("/admin/models", dependencies=[Depends(admin)])
     async def list_models() -> dict[str, Any]:
         hw, rows = await model_rows()
         return {"hardware": hw, "summary": hardware.describe(hw), "models": rows, "estimate": "Estimated from the file size; not measured."}
 
-    def pick(name: str, quant: str):
+    def pick(name: str, body: Choice):
         try:
             entry = router.entry(name)
         except UnknownModel:
             raise HTTPException(404, "No such model.") from None
         try:
-            entry.build(quant)
+            engines = entry.engines(body.quant)
         except KeyError:
             raise HTTPException(422, "No such build for this model.") from None
+        if body.engine not in engines:
+            raise HTTPException(422, f"This build runs on: {', '.join(engines)}.")
         return entry
 
-    @app.put("/admin/models/{name}/quant", dependencies=[Depends(admin)])
-    async def choose_quant(name: str, body: QuantChoice) -> dict[str, Any]:
-        """Use this build of the model from now on; every replica applies it within a second."""
-        entry = pick(name, body.quant)
-        row = next(r for r in next(m for m in (await model_rows())[1] if m["name"] == name)["builds"] if r["id"] == body.quant)
-        if row["fits"] is False:
-            raise HTTPException(409, row["reason"])
-        router.set_quant(name, body.quant)
-        saved = settings.load(tokens.settings_path).get("quants") or {}
-        settings.save(tokens.settings_path, quants={**saved, name: body.quant})
-        return {"saved": body.quant, "downloaded": row["downloaded"]}
+    @app.put("/admin/models/{name}/run", dependencies=[Depends(admin)])
+    async def choose_run(name: str, body: Choice) -> dict[str, Any]:
+        """Run this model as this build on this engine from now on; every replica applies it within a second."""
+        pick(name, body)
+        model = next(m for m in (await model_rows())[1] if m["name"] == name)
+        option = next(o for r in model["builds"] if r["id"] == body.quant for o in r["engines"] if o["engine"] == body.engine)
+        if option["fits"] is False:
+            raise HTTPException(409, option["reason"])
+        router.set_choice(name, body.quant, body.engine)
+        saved = settings.load(tokens.settings_path)
+        settings.save(tokens.settings_path, quants={**(saved.get("quants") or {}), name: body.quant},
+                      engines={**(saved.get("engines") or {}), name: body.engine})
+        return {"saved": {"quant": body.quant, "engine": body.engine}, "downloaded": option["downloaded"]}
 
     @app.post("/admin/models/{name}/download", dependencies=[Depends(admin)])
-    async def download_build(name: str, body: QuantChoice) -> dict[str, Any]:
+    async def download_build(name: str, body: Choice) -> dict[str, Any]:
         """The only place weights are fetched. Every replica then drops its loaded copy."""
-        entry = pick(name, body.quant)
+        entry = pick(name, body)
         try:
-            await asyncio.to_thread(router.adapters[entry.engine].download, entry, body.quant)
+            await asyncio.to_thread(router.adapters[body.engine].download, entry, body.quant)
         except EngineError as error:
             raise HTTPException(502, f"Download failed: {error}") from None
         await unload_all()
-        return {"downloaded": entry.source(body.quant)}
+        return {"downloaded": entry.source(body.quant, body.engine)}
 
     @app.get("/admin/workers", dependencies=[Depends(admin)])
     def workers() -> dict[str, Any]:

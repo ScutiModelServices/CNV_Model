@@ -20,12 +20,13 @@ class Adapter:
 
 
 def entry(name, caps=()):
-    return ModelEntry(name, name, "ollama", "o/" + name, "A", frozenset(caps), (Build("A", 1), Build("B", 2)))
+    both = {"ollama": {}, "llamacpp": {"ref": "x.gguf", "url": "http://x:1"}}
+    return ModelEntry(name, name, "o/" + name, "A", frozenset(caps), (Build("A", 1, engines=both), Build("B", 2, engines={"ollama": {}})))
 
 
 def make():
     adapter = Adapter()
-    return ModelRouter({"a": entry("a", ["tools"]), "b": entry("b")}, {"ollama": adapter}), adapter
+    return ModelRouter({"a": entry("a", ["tools"]), "b": entry("b")}, {"ollama": adapter, "llamacpp": adapter}), adapter
 
 
 def run(coro): return asyncio.run(coro)
@@ -37,7 +38,7 @@ def chat(router, model="a", **extra): return run(router.chat(model, [], temperat
 def test_model_and_quant_in_result():
     router, _ = make()
     out = chat(router)
-    assert out["content"] == "a:A" and out["model"] == "a" and out["quant"] == "A"
+    assert out["content"] == "a:A" and out["model"] == "a" and out["quant"] == "A" and out["engine"] == "ollama"
 
 
 def test_unknown_model_and_missing_capability():
@@ -53,7 +54,7 @@ def test_model_loads_once_and_set_quant_reloads():
     chat(router, "a"); chat(router, "a")
     assert adapter.loads == [("a", "A")]
     gen = router.generation
-    router.set_quant("a", "B")
+    router.set_choice("a", "B", "ollama")
     assert chat(router, "a")["content"] == "a:B" and router.generation > gen
 
 
@@ -79,3 +80,21 @@ def test_set_parallel_replaces_the_gate():
     router, _ = make()
     router.set_parallel(3)
     assert router.parallel == 3 and router._gate._value == 3
+
+
+def test_the_user_chooses_the_engine_and_the_build_must_list_it():
+    router, adapter = make()
+    with pytest.raises(CapabilityError):
+        chat(router, "a", engine="nope")
+    assert chat(router, "a", engine="llamacpp")["engine"] == "llamacpp"  # per request
+    router.set_choice("a", "A", "llamacpp")
+    assert chat(router, "a")["engine"] == "llamacpp"  # saved choice
+    with pytest.raises(CapabilityError):
+        router.set_choice("a", "B", "llamacpp")  # build B only runs on ollama
+
+
+def test_two_models_stay_loaded_at_once():
+    router, adapter = make()
+    chat(router, "a")
+    chat(router, "b")
+    assert sorted(router._loaded) == [("a", "A", "ollama"), ("b", "A", "ollama")] and router.ready

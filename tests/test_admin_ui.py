@@ -250,4 +250,4 @@ def test_models_card_lists_builds_under_each_model(page):
     sync_api.expect(card).to_contain_text("Liquid LFM3 1.7B")
     sync_api.expect(card).to_contain_text("BitNet b1.58 2B4T")
     lfm3 = page.locator("#variant-list .model-group", has_text="Liquid LFM3 1.7B")
-    sync_api.expect(lfm3.get_by_role("button", name="Download Liquid LFM3 1.7B Q8_0")).to_be_visible()
+    sync_api.expect(lfm3.get_by_role("button", name="Download Liquid LFM3 1.7B Q8_0 for ollama")).to_be_visible()

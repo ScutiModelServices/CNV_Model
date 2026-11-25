@@ -8,7 +8,7 @@
 
 | | |
 |---|---|
-| Input | Chat messages, `model` (required), temperature and maximum tokens. |
+| Input | Chat messages, `model` (required), optional `engine`, temperature and maximum tokens. |
 | Output | JSON content, `model`, `quant`, finish reason and usage; NDJSON streaming available. |
 | Runs on | CPU API. Inference runs on an external Ollama (LFM3, Spark X2.6, MiniCPM5) or a bitnet.cpp sidecar (BitNet b1.58 2B4T). The Models card lists each model's quantized builds with a memory estimate and whether this machine can run them. |
 

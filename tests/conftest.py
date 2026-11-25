@@ -45,7 +45,7 @@ class FakeAdapter:
 
     def load(self, entry, quant):
         self.loads.append((entry.name, quant))
-        return FakeLoaded(entry.source(quant), **self.options)
+        return FakeLoaded(entry.source(quant, self.name), **self.options)
 
     def downloaded(self):
         return set()
