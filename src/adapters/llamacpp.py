@@ -18,38 +18,70 @@ UNAVAILABLE = "Model unavailable; start the llama.cpp server and ask an admin to
 HUB = "https://huggingface.co"
 
 
-class _Loaded:
-    def __init__(self, adapter: "LlamaCppAdapter", model: str, url: str) -> None:
-        self._adapter, self._model, self._url = adapter, model, url
+CONTEXT = 4096  # the bitnet.cpp server is started with -c 4096
+END_OF_TURN = "<|eot_id|>"
 
-    def _body(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, stream: bool) -> dict[str, Any]:
-        return {"model": self._model, "messages": messages, "temperature": temperature, "max_tokens": max_tokens, "stream": stream}
+
+def render_bitnet(messages: list[dict[str, Any]]) -> str:
+    """`Role: text<|eot_id|>` per message, then `Assistant: ` (the template of microsoft/bitnet-b1.58-2B-4T). The GGUF
+    carries no chat template and the bitnet.cpp server cannot read one, so the service writes the prompt itself."""
+    return "".join(f"{m['role'].capitalize()}: {m['content'].strip()}{END_OF_TURN}" for m in messages) + "Assistant: "
+
+
+class _Loaded:
+    """One sidecar. `prompt` None: the server has a chat template and answers /v1/chat/completions. `prompt` "bitnet":
+    the service renders the prompt and uses /completion."""
+
+    def __init__(self, adapter: "LlamaCppAdapter", model: str, url: str, prompt: str | None = None) -> None:
+        self._adapter, self._model, self._url, self._prompt = adapter, model, url, prompt
+
+    def _open(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float, stream: bool):
+        send = self._adapter._open
+        if self._prompt != "bitnet":
+            return send(self._url, "/v1/chat/completions", {"model": self._model, "messages": messages, "temperature": temperature,
+                                                            "max_tokens": max_tokens, "stream": stream}, max_time)
+        prompt = render_bitnet(messages)
+        with send(self._url, "/tokenize", {"content": prompt}, max_time) as reply:
+            size = len(json.load(reply)["tokens"])
+        if size >= CONTEXT:  # the server would cut it silently
+            raise EngineError(f"The conversation is {size} tokens; the model reads at most {CONTEXT}", 400)
+        # the server runs with --special, so <|eot_id|> is printed and can end the answer
+        return send(self._url, "/completion", {"prompt": prompt, "temperature": temperature, "n_predict": min(max_tokens, CONTEXT - size),
+                                               "stream": stream, "stop": [END_OF_TURN]}, max_time)
 
     def generate(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float) -> dict[str, Any]:
-        reply = self._adapter._post(self._url, "/v1/chat/completions", self._body(messages, temperature, max_tokens, False), max_time)
         try:
+            with self._open(messages, temperature, max_tokens, max_time, False) as response:
+                reply = json.load(response)
+            if self._prompt == "bitnet":
+                return {"content": reply["content"].strip(), "prompt_tokens": reply.get("tokens_evaluated", 0),
+                        "completion_tokens": reply.get("tokens_predicted", 0), "finish": "length" if reply.get("stopped_limit") else "stop"}
             choice, usage = reply["choices"][0], reply.get("usage", {})
             return {"content": choice["message"]["content"].strip(), "prompt_tokens": usage.get("prompt_tokens", 0),
                     "completion_tokens": usage.get("completion_tokens", 0),
                     "finish": "length" if choice.get("finish_reason") == "length" else "stop"}
-        except (KeyError, IndexError, TypeError, AttributeError):
+        except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
             raise EngineError(UNAVAILABLE, 503) from None
 
     def stream(self, messages: list[dict[str, Any]], temperature: float, max_tokens: int, max_time: float, stop: Any) -> Iterator[tuple[str, Any]]:
-        finish, usage = "stop", {}
+        finish, stats = "stop", {}
         try:
-            with self._adapter._open(self._url, "/v1/chat/completions", self._body(messages, temperature, max_tokens, True), max_time) as response:
+            with self._open(messages, temperature, max_tokens, max_time, True) as response:
                 for raw in response:
                     if stop.is_set():
                         return
                     line = raw.decode("utf-8", "replace").strip()
-                    if not line.startswith("data:"):
+                    if not line.startswith("data:") or line[5:].strip() == "[DONE]":
                         continue
-                    data = line[5:].strip()
-                    if data == "[DONE]":
-                        break
-                    piece = json.loads(data)
-                    usage = piece.get("usage") or usage
+                    piece = json.loads(line[5:])
+                    if self._prompt == "bitnet":
+                        if text := piece.get("content"):
+                            yield "content", text
+                        if piece.get("stop"):
+                            stats = {"prompt_tokens": piece.get("tokens_evaluated", 0), "completion_tokens": piece.get("tokens_predicted", 0)}
+                            finish = "length" if piece.get("stopped_limit") else "stop"
+                        continue
+                    stats = piece.get("usage") or stats
                     choice = piece["choices"][0]
                     if text := choice.get("delta", {}).get("content"):
                         yield "content", text
@@ -57,7 +89,7 @@ class _Loaded:
                         finish = "length" if choice["finish_reason"] == "length" else "stop"
         except (OSError, ValueError, KeyError, IndexError, TypeError):
             raise EngineError(UNAVAILABLE, 503) from None
-        yield "done", {"prompt_tokens": usage.get("prompt_tokens", 0), "completion_tokens": usage.get("completion_tokens", 0), "finish": finish}
+        yield "done", {"prompt_tokens": stats.get("prompt_tokens", 0), "completion_tokens": stats.get("completion_tokens", 0), "finish": finish}
 
 
 class LlamaCppAdapter:
@@ -91,7 +123,7 @@ class LlamaCppAdapter:
     def load(self, entry: ModelEntry, quant: str) -> _Loaded:
         if not (self.models_dir / entry.source(quant, "llamacpp")).is_file():
             raise EngineError(UNAVAILABLE, 503)
-        return _Loaded(self, entry.source(quant, "llamacpp"), entry.url(quant, "llamacpp"))
+        return _Loaded(self, entry.source(quant, "llamacpp"), entry.url(quant, "llamacpp"), entry.options(quant, "llamacpp").get("prompt"))
 
     def unload(self, entry: ModelEntry, quant: str) -> None:
         """Nothing to free: the sidecar keeps its one model in memory for as long as it runs."""

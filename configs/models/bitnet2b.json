@@ -12,7 +12,8 @@
       "engines": {
         "llamacpp": {
           "ref": "ggml-model-i2_s.gguf",
-          "url": "http://cnv_bitnet_server:8080"
+          "url": "http://cnv_bitnet_server:8080",
+          "prompt": "bitnet"
         }
       }
     }

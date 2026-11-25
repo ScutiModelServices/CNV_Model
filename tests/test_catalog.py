@@ -34,6 +34,18 @@ def test_rejects_bad_entry(tmp_path, over):
         load_catalog(tmp_path)
 
 
+def test_llamacpp_prompt_option_is_optional_and_checked(tmp_path):
+    def with_options(options):
+        write(tmp_path, "p", engine=None, builds=[{"quant": "Q4_K_M", "file_mb": 1, "engines": {"llamacpp": options}}])
+        return load_catalog(tmp_path)
+
+    base = {"ref": "p.gguf", "url": "http://x:1"}
+    assert with_options({**base, "prompt": "bitnet"})["p"].options("Q4_K_M", "llamacpp")["prompt"] == "bitnet"
+    assert "prompt" not in with_options(base)["p"].options("Q4_K_M", "llamacpp")
+    with pytest.raises(CatalogError):
+        with_options({**base, "prompt": "nope"})
+
+
 def test_name_must_match_file(tmp_path):
     write(tmp_path, "a")
     (tmp_path / "a.json").rename(tmp_path / "b.json")

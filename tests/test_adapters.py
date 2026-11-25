@@ -1,3 +1,4 @@
+import json
 import threading
 from catalog import Build, ModelEntry
 from adapters.llamacpp import LlamaCppAdapter
@@ -15,12 +16,51 @@ def adapter_with_file(tmp_path):
     return LlamaCppAdapter(tmp_path)
 
 
+def fake_open(adapter, monkeypatch, replies):
+    """Replace the HTTP call: `replies` maps a path to the JSON the server answers; returns the (url, path, body) calls."""
+    import io
+
+    calls = []
+
+    def _open(url, path, body, timeout):
+        calls.append((url, path, body))
+        return io.BytesIO(json.dumps(replies[path]).encode())
+
+    monkeypatch.setattr(adapter, "_open", _open)
+    return calls
+
+
 def test_llamacpp_generate_maps_openai_reply(tmp_path, monkeypatch):
-    adapter, calls = adapter_with_file(tmp_path), []
-    monkeypatch.setattr(adapter, "_post", lambda url, path, body, timeout: (calls.append(url), REPLY)[1])
+    adapter = adapter_with_file(tmp_path)
+    calls = fake_open(adapter, monkeypatch, {"/v1/chat/completions": REPLY})
     out = adapter.load(ENTRY, "i2_s").generate([{"role": "user", "content": "yo"}], 0.2, 16, 5.0)
     assert out == {"content": "hi", "prompt_tokens": 3, "completion_tokens": 1, "finish": "stop"}
-    assert calls == ["http://llama:8080"]  # the model's own server, from the catalog
+    assert calls[0][0] == "http://llama:8080" and calls[0][1] == "/v1/chat/completions"  # the model's own server, from the catalog
+
+
+def test_llamacpp_prompt_bitnet_renders_the_prompt_and_uses_completion(tmp_path, monkeypatch):
+    adapter = adapter_with_file(tmp_path)
+    entry = ModelEntry("bitnet2b", "BitNet", "org/bitnet", "i2_s", frozenset(),
+                       (Build("i2_s", 1200, engines={"llamacpp": {"ref": "bitnet-i2_s.gguf", "url": "http://llama:8080", "prompt": "bitnet"}}),))
+    calls = fake_open(adapter, monkeypatch, {"/tokenize": {"tokens": [1, 2, 3]},
+                                             "/completion": {"content": " hi ", "tokens_evaluated": 3, "tokens_predicted": 1, "stopped_limit": False}})
+    out = adapter.load(entry, "i2_s").generate([{"role": "user", "content": " yo "}], 0.2, 16, 5.0)
+    assert out == {"content": "hi", "prompt_tokens": 3, "completion_tokens": 1, "finish": "stop"}
+    assert [c[1] for c in calls] == ["/tokenize", "/completion"]
+    assert calls[1][2]["prompt"] == "User: yo<|eot_id|>Assistant: " and calls[1][2]["stop"] == ["<|eot_id|>"] and calls[1][2]["n_predict"] == 16
+
+
+def test_llamacpp_prompt_bitnet_refuses_a_conversation_longer_than_the_context(tmp_path, monkeypatch):
+    import pytest
+    from errors import EngineError
+
+    adapter = adapter_with_file(tmp_path)
+    entry = ModelEntry("bitnet2b", "BitNet", "org/bitnet", "i2_s", frozenset(),
+                       (Build("i2_s", 1200, engines={"llamacpp": {"ref": "bitnet-i2_s.gguf", "url": "http://llama:8080", "prompt": "bitnet"}}),))
+    fake_open(adapter, monkeypatch, {"/tokenize": {"tokens": list(range(4096))}})
+    with pytest.raises(EngineError) as long:
+        adapter.load(entry, "i2_s").generate([{"role": "user", "content": "x"}], 0, 8, 5.0)
+    assert long.value.status == 400
 
 
 def test_llamacpp_stream_reads_sse(tmp_path, monkeypatch):

@@ -11,8 +11,7 @@ RUN CC=clang CXX=clang++ cmake -B build -DBUILD_SHARED_LIBS=OFF -DGGML_OPENMP=OF
 
 FROM python:3.12-slim
 COPY --from=cpp /bitnet/build/bin/llama-server /usr/local/bin/llama-server
-# The GGUF carries no chat template: this one is the template of microsoft/bitnet-b1.58-2B-4T (`Role: text<|eot_id|>` ... `Assistant: `).
-COPY bitnet.jinja /etc/bitnet.jinja
+# No chat template here: this bitnet.cpp server cannot read one, so the service writes the prompt and calls /completion (catalog: prompt "bitnet").
 # One server, one model: the file the catalog's `bitnet2b` points at (shared /models volume, filled by the admin Download button).
 # The entrypoint waits until that file exists, so the container does not restart in a loop before the first download.
 COPY entrypoint.sh /entrypoint.sh
