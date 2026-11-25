@@ -98,12 +98,26 @@ class ModelRouter:
 
     def _model(self, entry: ModelEntry, engine: str) -> tuple[Any, str]:
         quant = self.quant_of(entry)
+        key = (entry.name, quant, engine)
         with self._lock:
-            if (entry.name, quant, engine) not in self._loaded:
-                if self.guard and (reason := self.guard(entry, quant, engine)):
-                    raise EngineError(reason, 503)
-                self._loaded[entry.name, quant, engine] = self.adapters[engine].load(entry, quant)
-            return self._loaded[entry.name, quant, engine], quant
+            loaded, generation = self._loaded.get(key), self.generation
+        if loaded is None:
+            if self.guard and (reason := self.guard(entry, quant, engine)):
+                raise EngineError(reason, 503)
+            loaded = self.adapters[engine].load(entry, quant)  # slow (the engine reads the weights): the lock is not held, so stop and the admin sync are never blocked by it
+            with self._lock:
+                if self.generation == generation:  # not forgotten while it loaded
+                    loaded = self._loaded.setdefault(key, loaded)
+        return loaded, quant
+
+    def prune(self) -> None:
+        """Forget loaded models that the engine no longer holds in memory (Ollama frees one after its keep-alive).
+        An engine that cannot say keeps its handle. The answer cache is untouched: the weights did not change."""
+        for key in list(self._loaded):
+            resident = getattr(self.adapters[key[2]], "resident", None)
+            if resident and resident(self.catalog[key[0]], key[1]) is False:
+                with self._lock:
+                    self._loaded.pop(key, None)
 
     def _prepare(self, model: str, engine: str | None, tools: list[dict[str, Any]] | None) -> tuple[ModelEntry, str, dict[str, Any]]:
         entry = self.entry(model)

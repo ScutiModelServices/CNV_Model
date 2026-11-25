@@ -169,6 +169,15 @@ class OllamaAdapter:
         except OSError:
             raise _unavailable(model) from None
 
+    def resident(self, entry: ModelEntry, quant: str) -> bool | None:
+        """Whether Ollama holds this build in memory right now (`/api/ps`); None when it cannot be asked."""
+        model = entry.source(quant, "ollama")
+        try:
+            names = {m["name"] for m in _json_call(self.url, "/api/ps", None, 5, model)["models"]}
+        except (EngineError, *_READ_ERRORS):
+            return None
+        return bool({model, f"{model}:latest"} & names)
+
     def downloaded(self) -> set[str]:
         """Names of every model Ollama has on disk, with and without an implicit `:latest`."""
         reply = _json_call(self.url, "/api/tags", None, 15, "")

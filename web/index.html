@@ -1326,9 +1326,9 @@ function watchModelProgress() {
   }, 1000);
 }
 const MODEL_STATES = {
-  stopped: ["stopped", "Stopped", "Refuses requests until you press Start."],
-  ready: ["unloaded", "Unloaded", "Takes requests and loads into memory on the first one."],
-  running: ["loaded", "Loaded", ""]
+  stopped: ["stopped", "Off", "Refuses every request. Turn it on to use it."],
+  ready: ["unloaded", "On, not in memory", "Takes requests. The first one loads the model, which can take a minute or more; Ollama frees it again after a few idle minutes. Press Preload to load it now."],
+  running: ["loaded", "On, in memory", "Takes requests and answers without a load step."]
 };
 function mEl(tag, props = {}, ...kids) {
   const node = document.createElement(tag);
@@ -1420,11 +1420,11 @@ function mIconButton(name, aria, tip, {on = false, reason = "", kind = "", oncli
   return mEl("button", {type: "button", class: "m-small m-icon" + (on ? " on" : "") + (kind ? " " + kind : ""), "aria-label": aria,
                         "aria-disabled": blocked ? "true" : null, title: reason || tip, onclick: blocked ? null : onclick}, mIcon(name));
 }
-function modelAction(model, action, label, off, reason) {
+function modelAction(model, action, label, off, reason, busy) {
   return mAction(label, label + " " + model.title, off ? reason : "", async event => {
     const button = event.currentTarget;
     const group = button.closest(".m-lifecycle").querySelectorAll("button.m-small");
-    $("variants-error").textContent = ""; $("variants-note").textContent = label + "ing " + model.title + "...";
+    $("variants-error").textContent = ""; $("variants-note").textContent = busy + " " + model.title + "...";
     group.forEach(item => item.setAttribute("aria-disabled", "true"));
     button.setAttribute("aria-busy", "true");  // the spinner in the shared button style
     try {
@@ -1446,7 +1446,7 @@ function buildRows(model, row) {
   return row.engines.map(option => {
     const key = model.name + "/" + row.id + "/" + option.engine;
     const where = model.title + " " + row.title + " on " + option.engine;
-    const loaded = model.state === "running", stopFirst = "Stop the model first: it is loaded.";
+    const loaded = model.state === "running", stopFirst = "Turn the model off first: it is in memory.";
     const blocked = option.fits === false ? option.reason : "";
     const downloading = activeDownload && lastProgress && (lastProgress.label === option.source || downloadKey === key);
     const inUse = option.current && model.state !== "stopped" && option.fits !== false;
@@ -1474,7 +1474,7 @@ function buildRows(model, row) {
         finally { downloadKey = ""; downloadingNow = false; await refreshVariants().catch(() => {}); }
       }}),
       mIconButton("trash", "Uninstall " + where, "Uninstall: delete the downloaded weights", {kind: "danger",
-        reason: !option.downloaded ? "Not downloaded." : loaded ? stopFirst : inUse ? "This build is in use: stop the model or select another build first." : "",
+        reason: !option.downloaded ? "Not downloaded." : loaded ? stopFirst : inUse ? "This build is in use: turn the model off or select another build first." : "",
         onclick: event => askDelete(event.currentTarget, model, row, option)})));
     const tr = mEl("tr", {class: "m-row-link", "data-selected": option.current ? "" : null, onclick: event => { if (!event.target.closest("button")) quant.click(); }},
       mEl("td", {class: "m-main"},
@@ -1503,9 +1503,8 @@ function renderVariants(data) {
           ...model.capabilities.map(capability => mPill(capability[0].toUpperCase() + capability.slice(1))))),
       mEl("div", {class: "m-lifecycle"}, mEl("span", {class: "m-state"}, mPill(stateText, "state " + kind), ...(stateHelp ? mHelp(helpId, "What " + stateText.toLowerCase() + " means", stateHelp) : [])),
         mEl("div", {class: "m-seg", role: "group", "aria-label": model.title + " lifecycle"},
-          modelAction(model, "start", "Start", model.state === "running", "Model is already loaded"),
-          modelAction(model, "stop", "Stop", model.state === "stopped", "Model is already stopped"),
-          modelAction(model, "restart", "Restart", model.state === "stopped", "Start the model first"))));
+          model.state === "stopped" ? modelAction(model, "on", "Turn on", false, "", "Turning on") : modelAction(model, "stop", "Turn off", false, "", "Turning off"),
+          modelAction(model, "start", "Preload", model.state !== "ready", model.state === "stopped" ? "Turn it on first." : "Already in memory.", "Loading"))));
     const blocked = model.builds.flatMap(row => row.engines.filter(option => option.fits === false)
       .map(option => (model.builds.length > 1 ? row.title + " on " + option.engine + ": " : "") + option.reason));
     const banner = blocked.length ? mEl("div", {class: "m-banner", role: "note"}, mEl("span", {"aria-hidden": "true"}, "⚠"), mEl("div", {}, ...blocked.map(text => mEl("p", {}, text)))) : null;
