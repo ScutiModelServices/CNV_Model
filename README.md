@@ -30,7 +30,7 @@ The admin **Marketplace** page lists the quantizations that exist in each suppor
 
 ## What fits
 
-A build is downloaded, run or loaded only if this machine can run it: its estimated memory (file size × 1.1 + 400 MB) must fit the free GPU memory or free RAM. A build that does not fit gets 409 on download, run, start and marketplace add, and 503 if a request would load it. When the fit cannot be checked (the engine runs on another machine, or memory is unreadable) the build is allowed and labelled "could not check". The build already running is not re-checked on download.
+A build is downloaded, run or loaded only if this machine can run it: its estimated memory (file size × 1.1 + 400 MB) must fit the free GPU memory or free RAM. A build can also need a CPU feature (BitNet's bitnet.cpp kernel needs AVX2; a CPU without it, such as a 2012 Core i5, makes the model answer `!!!!…`), which counts as not fitting. A build that does not fit gets 409 on download, run, start and marketplace add, and 503 if a request would load it. When the fit cannot be checked (the engine runs on another machine, or memory is unreadable) the build is allowed and labelled "could not check". The build already running is not re-checked on download.
 
 ## Catalog
 
