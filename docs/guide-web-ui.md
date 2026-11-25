@@ -99,6 +99,14 @@ The shared token UI still has a scope input, but this service refuses any projec
 
 The **Settings** card changes options without editing `.env.compose`, `.env` or restarting: Ollama address, GGUF folder, parallel generations, caches and limits, thinking (off/on) and hide reasoning. Each row shows where its value comes from (saved, environment or default). A value saved here beats the environment variable; **Reset** removes it. Every replica reads the shared settings file, so a change applies within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports, replica count and other Docker settings stay in `.env` or the compose file, because the service cannot change its own container.
 
+## Start, stop and restart
+
+Each model on the Models page has **Start**, **Stop** and **Restart**. Stop unloads it from the engine and refuses its requests (503) until you start it; Start loads it now. The state (`stopped`, `running`, `ready`) is shown next to the title and saved for every replica.
+
+## Marketplace
+
+The **Marketplace** page lists the other quantizations in each supported model's Hugging Face repository, with size and whether this machine can run them. **Add** puts one under the model on the Models page, where you download and run it; **Remove** takes it out again. Variants that do not fit are greyed with the reason and cannot be added, downloaded or run. If the fit cannot be checked the row says so and is allowed.
+
 ## Updating the model files
 
 The service loads only downloaded weights and tokenizer files. Startup and requests never download; there is no warm-up and no default model. With no downloaded model, `/health` and `/admin/` answer, `ready` is false and inference returns 503 with an admin Download hint. First start: open `/admin/` → **Models and builds** → **Download** on a build. Only Download fetches files (`ollama pull`, or a GGUF file for llama.cpp); a successful download makes every replica drop its loaded copy through shared storage and reload on its next request.

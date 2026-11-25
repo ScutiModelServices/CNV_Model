@@ -98,3 +98,25 @@ def test_two_models_stay_loaded_at_once():
     chat(router, "a")
     chat(router, "b")
     assert sorted(router._loaded) == [("a", "A", "ollama"), ("b", "A", "ollama")] and router.ready
+
+
+def test_stop_refuses_requests_and_start_loads_again():
+    router, adapter = make()
+    adapter.unload = lambda e, q: adapter.loads.append(("unloaded", e.name))
+    chat(router, "a")
+    assert router.state_of("a") == "running" and router.state_of("b") == "ready"
+    asyncio.run(router.stop("a"))
+    assert router.state_of("a") == "stopped" and ("unloaded", "a") in adapter.loads and not router._loaded
+    with pytest.raises(EngineError) as stopped:
+        chat(router, "a")
+    assert stopped.value.status == 503 and "stopped" in str(stopped.value)
+    asyncio.run(router.start("a"))
+    assert router.state_of("a") == "running" and chat(router, "a")["content"] == "a:A"
+
+
+def test_guard_blocks_loading_a_build_that_does_not_fit():
+    router, adapter = make()
+    router.guard = lambda entry, quant, engine: "Needs about 9999 MB; 1 MB of memory is free."
+    with pytest.raises(EngineError) as blocked:
+        chat(router, "a")
+    assert blocked.value.status == 503 and "Needs about" in str(blocked.value) and adapter.loads == []

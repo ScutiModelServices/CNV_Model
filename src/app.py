@@ -25,9 +25,10 @@ import builds
 import hardware
 from adapters.llamacpp import LlamaCppAdapter
 from adapters.ollama import OllamaAdapter
-from catalog import load_catalog
+from catalog import load_catalog, with_extras
 from cache import AnswerCache
 from disconnect import CallerGone, Measure, first_piece
+from dataclasses import replace
 from errors import CapabilityError, EngineError, UnknownModel
 from options import SETTINGS
 from router import ModelRouter
@@ -98,6 +99,10 @@ class TokenScope(BaseModel):
     rate: int | None = Field(None, ge=1, le=100_000)
 
 
+class Variant(BaseModel):
+    quant: str = Field(min_length=1, max_length=64)
+
+
 class Choice(BaseModel):
     quant: str = Field(min_length=1, max_length=64)
     engine: str = Field(min_length=1, max_length=32)
@@ -112,10 +117,24 @@ def _hub_json(url: str) -> list[dict[str, Any]]:
         return json.load(response)
 
 
+def _offline(_url: str) -> list[dict[str, Any]]:
+    raise OSError("offline")  # used where only the cache may answer
+
+
+def read_extras(tokens: TokenStore) -> dict[str, list[dict[str, Any]]]:
+    """The quantizations the user added from the marketplace: {model: [{quant, file_mb}]}, shared by every replica."""
+    try:
+        data = json.loads((Path(tokens.settings_path).parent / "marketplace.json").read_text("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
 def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRouter:
     """The catalog, one adapter per engine, and the saved build and engine choices."""
     folder = Path(os.environ.get("SERVICE_CONFIGS_DIR", Path(__file__).resolve().parents[1] / "configs" / "models"))
-    catalog = load_catalog(folder)
+    extras = read_extras(tokens)
+    catalog = {name: with_extras(entry, extras.get(name, [])) for name, entry in load_catalog(folder).items()}
 
     def live() -> tuple[bool, bool]:
         return (str(config.get("thinking")).lower() == "on", bool(config.get("hide_reasoning")))
@@ -133,7 +152,9 @@ def build_router(tokens: TokenStore, config: settings.Config | None) -> ModelRou
     quants = {name: quant for name, quant in saved.items() if name in catalog and any(b.quant == quant for b in catalog[name].builds)}
     engines = {name: engine for name, engine in (settings.load(tokens.settings_path).get("engines") or {}).items()
                if name in catalog and engine in catalog[name].engines(quants.get(name, catalog[name].default_quant))}
-    return ModelRouter(catalog, adapters, quants, option("ollama_parallel"), engines)
+    router = ModelRouter(catalog, adapters, quants, option("ollama_parallel"), engines)
+    router.stopped = set(settings.load(tokens.settings_path).get("stopped") or []) & set(catalog)
+    return router
 
 
 def create_app(router: ModelRouter | None = None, admin_password: str | None = None,
@@ -149,6 +170,37 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     router = router or build_router(tokens, config)
     inflight = 0
     cache = AnswerCache()
+    sizes_file = Path(tokens.settings_path).parent / "hub-sizes.json"
+    extras_file = Path(tokens.settings_path).parent / "marketplace.json"
+    extras = read_extras(tokens)
+    extras_text = extras_file.read_text("utf-8") if extras_file.exists() else ""
+
+    def curated(entry):
+        """The model as its catalog file lists it, without the marketplace additions."""
+        added = {x["quant"] for x in extras.get(entry.name, [])}
+        return replace(entry, builds=tuple(b for b in entry.builds if b.quant not in added))
+
+    base_catalog = {name: curated(entry) for name, entry in router.catalog.items()}
+
+    def apply_extras() -> None:
+        router.catalog.update({name: with_extras(entry, extras.get(name, [])) for name, entry in base_catalog.items()})
+
+    def write_extras() -> None:
+        nonlocal extras_text
+        extras_text = json.dumps(extras)
+        extras_file.write_text(extras_text, "utf-8")
+
+    def fit_reason(entry, quant: str, engine: str) -> str | None:
+        """Why this build cannot run on this machine, or None (it fits, or the engine is elsewhere or memory is unreadable).
+        Sizes come from the cache only: no network call on the request path."""
+        if not router.adapters[engine].same_machine:
+            return None
+        files = builds.cached_files(sizes_file, entry.repo, _offline, time.time())
+        mb = files.get(quant, {}).get("mb") or entry.build(quant).file_mb
+        where, reason = builds.place(builds.estimate_mb(mb), hardware.probe())
+        return None if where or reason == builds.UNKNOWN else reason
+
+    router.guard = router.guard or fit_reason  # a build that does not fit is never loaded, not even by a request
     marker = Path(tokens.settings_path).parent / ".cnv-weights-version"
     threads: int | None = None  # saved and reported only; Ollama chooses its own threads
 
@@ -181,10 +233,20 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     async def sync_forever() -> None:
         """Applies saved admin values and drops models another replica replaced with new weights."""
-        nonlocal seen, threads
+        nonlocal seen, threads, extras_text
         while True:
             saved = await asyncio.to_thread(settings.load, tokens.settings_path)
             threads = saved.get("num_thread") or threads
+            text = extras_file.read_text("utf-8") if extras_file.exists() else ""
+            if text != extras_text:
+                extras_text = text
+                extras.clear()
+                extras.update(read_extras(tokens))
+                apply_extras()
+            stopped = set(saved.get("stopped") or []) & set(router.catalog)
+            for name in stopped - router.stopped:
+                router.forget(name)
+            router.stopped = stopped
             ollama, llama = router.adapters["ollama"], router.adapters["llamacpp"]
             if (url := config.get("ollama_url").strip().rstrip("/")) != ollama.url:
                 ollama.url = url
@@ -259,7 +321,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     @app.get("/v1/models", dependencies=[Depends(authorize)])
     async def models() -> list[dict[str, Any]]:
         return [{"name": e.name, "title": e.title, "capabilities": sorted(e.capabilities), "quant": router.quant_of(e),
-                 "engine": router.engine_of(e), "builds": [{"quant": b.quant, "engines": list(b.engines)} for b in e.builds]}
+                 "engine": router.engine_of(e), "state": router.state_of(e.name), "builds": [{"quant": b.quant, "engines": list(b.engines)} for b in e.builds]}
                 for e in router.catalog.values()]
 
     def build(reply: dict[str, Any], started: float) -> dict[str, Any]:
@@ -397,13 +459,12 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             except EngineError:
                 on_disk[engine] = set()
         hw = {engine: machine if adapter.same_machine else None for engine, adapter in router.adapters.items()}
-        sizes_file = Path(tokens.settings_path).parent / "hub-sizes.json"
         rows = []
         for entry in router.catalog.values():
             live = await asyncio.to_thread(builds.cached_sizes, sizes_file, entry.repo, fetch_sizes, time.time())
             current = (router.quant_of(entry), router.engine_of(entry))
             rows.append({"name": entry.name, "title": entry.title, "capabilities": sorted(entry.capabilities),
-                         "current_quant": current[0], "current_engine": current[1],
+                         "current_quant": current[0], "current_engine": current[1], "state": router.state_of(entry.name),
                          "builds": builds.listing(entry, hw, current, on_disk, live)})
         return machine, rows
 
@@ -443,12 +504,92 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def download_build(name: str, body: Choice) -> dict[str, Any]:
         """The only place weights are fetched. Every replica then drops its loaded copy."""
         entry = pick(name, body)
+        if (body.quant, body.engine) != (router.quant_of(entry), router.engine_of(entry)) \
+                and (reason := await asyncio.to_thread(fit_reason, entry, body.quant, body.engine)):
+            raise HTTPException(409, reason)  # only builds this machine can run are downloaded
         try:
             await asyncio.to_thread(router.adapters[body.engine].download, entry, body.quant)
         except EngineError as error:
             raise HTTPException(502, f"Download failed: {error}") from None
         await unload_all()
         return {"downloaded": entry.source(body.quant, body.engine)}
+
+    def persist_stopped() -> None:
+        settings.save(tokens.settings_path, stopped=sorted(router.stopped))
+
+    @app.post("/admin/models/{name}/{action}", dependencies=[Depends(admin)])
+    async def lifecycle(name: str, action: Literal["start", "stop", "restart"]) -> dict[str, Any]:
+        """Stop frees the model and refuses its requests; start loads it and allows them again; restart is both."""
+        try:
+            entry = router.entry(name)
+        except UnknownModel:
+            raise HTTPException(404, "No such model.") from None
+        if action in ("stop", "restart"):
+            await router.stop(name)
+            persist_stopped()
+        if action in ("start", "restart"):
+            if reason := await asyncio.to_thread(fit_reason, entry, router.quant_of(entry), router.engine_of(entry)):
+                raise HTTPException(409, reason)  # stays stopped
+            try:
+                await router.start(name)
+            except EngineError as error:
+                persist_stopped()
+                raise HTTPException(error.status or 502, f"Started, but it could not be loaded now: {error}") from None
+            persist_stopped()
+        return {"state": router.state_of(name)}
+
+    async def marketplace_files(entry) -> dict[str, dict[str, Any]]:
+        return await asyncio.to_thread(builds.cached_files, sizes_file, entry.repo, fetch_sizes, time.time())
+
+    def ollama_machine() -> dict[str, Any] | None:
+        return hardware.probe() if router.adapters["ollama"].same_machine else None
+
+    @app.get("/admin/marketplace", dependencies=[Depends(admin)])
+    async def list_marketplace() -> dict[str, Any]:
+        """Quantizations in each model's Hub repo that the catalog does not list, with whether this machine can run them."""
+        machine = await asyncio.to_thread(ollama_machine)
+        models = []
+        for name, base in base_catalog.items():
+            files = await marketplace_files(base)
+            runs_on_ollama = "ollama" in base.engines(base.default_quant)
+            rows = builds.marketplace(base, {b.quant for b in base.builds}, files, machine, {x["quant"] for x in extras.get(name, [])}) if runs_on_ollama else []
+            note = "" if runs_on_ollama else "Runs on its own sidecar: add builds in its catalog file."
+            models.append({"name": name, "title": base.title, "variants": rows,
+                           "note": note or ("" if files else "Could not read the Hub listing (offline?).")})
+        return {"summary": hardware.describe(machine), "models": models, "estimate": "Estimated from the file size; not measured."}
+
+    @app.post("/admin/marketplace/{name}/add", dependencies=[Depends(admin)])
+    async def marketplace_add(name: str, body: Variant) -> dict[str, Any]:
+        """Add a Hub quantization to the model's builds. Only builds this machine can run are added."""
+        try:
+            base = base_catalog[router.entry(name).name]
+        except UnknownModel:
+            raise HTTPException(404, "No such model.") from None
+        if "ollama" not in base.engines(base.default_quant):
+            raise HTTPException(422, "This model runs on its own sidecar: add builds in its catalog file.")
+        item = (await marketplace_files(base)).get(body.quant)
+        if item is None or body.quant in {b.quant for b in base.builds}:
+            raise HTTPException(404, "The Hub repo does not offer this variant, or the catalog lists it already.")
+        row = builds.marketplace(base, set(), {body.quant: item}, await asyncio.to_thread(ollama_machine), set())[0]
+        if row["fits"] is False:
+            raise HTTPException(409, row["reason"])
+        if body.quant not in {x["quant"] for x in extras.get(name, [])}:
+            extras.setdefault(name, []).append({"quant": body.quant, "file_mb": item["mb"]})
+            write_extras()
+            apply_extras()
+        return {"added": body.quant}
+
+    @app.delete("/admin/marketplace/{name}/{quant}", dependencies=[Depends(admin)])
+    async def marketplace_remove(name: str, quant: str) -> dict[str, Any]:
+        """Take an added variant out of the model's builds. Its downloaded files stay on disk."""
+        if quant not in {x["quant"] for x in extras.get(name, [])}:
+            raise HTTPException(404, "No such added variant.")
+        if router.quant_of(router.entry(name)) == quant:
+            raise HTTPException(409, "It is the build this model runs: run another build first.")
+        extras[name] = [x for x in extras[name] if x["quant"] != quant]
+        write_extras()
+        apply_extras()
+        return {"removed": quant}
 
     @app.get("/admin/workers", dependencies=[Depends(admin)])
     def workers() -> dict[str, Any]:

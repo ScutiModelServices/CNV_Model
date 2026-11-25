@@ -12,3 +12,10 @@ class UnknownModel(LookupError):
 
 class CapabilityError(ValueError):
     """The request uses a field the chosen model does not support (HTTP 422)."""
+
+
+class ModelStopped(EngineError):
+    """The model was stopped on the admin page; requests are refused until it is started (HTTP 503)."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(f"{name} is stopped; start it on the admin page.", 503)

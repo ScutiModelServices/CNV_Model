@@ -14,6 +14,18 @@ First start: open `/admin/` → **Models and builds** → **Download** on a buil
 
 `model` is required and is a catalog name (`lfm3`, `sparkx26`, `minicpm52b`, `bitnet2b`); there is no default model. A missing `model` is 422, an unknown name 404. `tools` on a model without the `tools` capability, and `schema`, `project` or `thinking` in any request, are 422. Thinking is an admin setting. Messages, limits, streaming (NDJSON `content` lines then `done`), cache (`X-Cache`, temperature 0 only; the key includes model and quant) and tokens work as in the old services.
 
+## Start, stop, restart
+
+Each model has Start, Stop and Restart on the admin Models page (`POST /admin/models/{name}/start|stop|restart`). **Stop** frees the model (Ollama is told to unload it; the bitnet.cpp sidecar keeps running, so only the service's handle is dropped) and refuses its requests with 503 until it is started. **Start** loads it now and allows requests again; **Restart** is both. A model's state is `stopped`, `running` (loaded by this replica) or `ready` (loads on its first request). Stopped models are saved, so every replica and a restart keep them stopped.
+
+## Marketplace
+
+The admin **Marketplace** page lists the quantizations that exist in each supported model's Hugging Face repository and that its catalog file does not list, with their size and whether this machine can run them. **Add** puts one under the model's builds (saved in `marketplace.json` in the data volume, shared by replicas); download and run it on the Models page. **Remove** takes an added variant out again (its files stay on disk; the build in use cannot be removed). Added variants run on Ollama only; a model that runs on its own llama.cpp sidecar (`bitnet2b`) has none, since a sidecar holds one file. The listing needs the Hub; offline it says so and the catalog builds still work.
+
+## What fits
+
+A build is downloaded, run or loaded only if this machine can run it: its estimated memory (file size × 1.1 + 400 MB) must fit the free GPU memory or free RAM. A build that does not fit gets 409 on download, run, start and marketplace add, and 503 if a request would load it. When the fit cannot be checked (the engine runs on another machine, or memory is unreadable) the build is allowed and labelled "could not check". The build already running is not re-checked on download.
+
 ## Catalog
 
 One JSON file per model in `configs/models/`; see [configs/README.md](configs/README.md). Add a row to `builds` to list another quantization.

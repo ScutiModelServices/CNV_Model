@@ -453,6 +453,14 @@ progress { accent-color: var(--accent); border-radius: var(--radius-full); }
       <p id="variants-note" class="saved" role="status"></p>
       <p id="variants-error" class="error" role="alert"></p>
     </section>
+    <section id="market-card" class="card" aria-labelledby="market-title" hidden>
+      <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1 12H5L4 7ZM8 7a4 4 0 0 1 8 0"/></svg><h2 id="market-title">Marketplace</h2></div>
+      <p class="description">More quantized variants of the supported models, listed from each model's Hugging Face repository. Only variants this machine can run can be added. An added variant appears under its model on the Models page, where you download and run it.</p>
+      <p id="market-hardware" class="description"></p>
+      <ul id="market-list" class="update-list"></ul>
+      <p id="market-note" class="saved" role="status"></p>
+      <p id="market-error" class="error" role="alert"></p>
+    </section>
     <section id="updates-card" class="card" aria-labelledby="updates-title" hidden>
       <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0 4-4m-4 4-4-4M5 20h14"/></svg><h2 id="updates-title">Updates</h2></div>
       <p id="updates-description" class="description">Looks for a newer package on PyPI and newer weights on the Hugging Face Hub.</p>
@@ -929,6 +937,7 @@ function renderUpdates(data) {
 const hasTag = tag => (CONFIG.tags || []).includes(tag);
 $("voices-card").hidden = !hasTag("voice-cloning");
 $("variants-card").hidden = !hasTag("variants");
+$("market-card").hidden = !hasTag("variants");
 $("gpu-note").hidden = !hasTag("gpu");
 $("thread-note").textContent = CONFIG.threadNote || "";
 $("thread-note").hidden = !CONFIG.threadNote;
@@ -950,6 +959,7 @@ class AdminNavigation {
       {id: "tokens", label: "Access tokens", description: "Manage scoped access, rate limits and expiration.", nodes: ["tokens-card"], icon: "M15 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM11 11v10m0-4h4m-4 4h3"},
       {id: "runtime", label: "Runtime & settings", description: "Resource controls and model configuration.", nodes: ["threads-card", "settings-card", "workers"], icon: "M4 7h16M4 17h16M8 4v6m8 4v6"},
       ...(hasTag("variants") ? [{id: "variants", label: "Models", description: "Pick a build of each model and download its weights.", nodes: ["variants-card"], icon: "M4 7h16M4 12h16M4 17h10"}] : []),
+      ...(hasTag("variants") ? [{id: "marketplace", label: "Marketplace", description: "Add more quantized variants of the supported models.", nodes: ["market-card"], icon: "M4 7h16l-1 12H5L4 7ZM8 7a4 4 0 0 1 8 0"}] : []),
       ...(config.updates ? [{id: "updates", label: "Model updates", description: "Check availability and explicitly download model weights.", nodes: ["updates-card"], icon: "M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"}] : []),
       {id: "connections", label: "Connections", description: "Use the address that matches where your caller runs.", nodes: ["connect-card"], icon: "m9 15 6-6m-8 4-2 2a4 4 0 0 0 6 6l2-2m-2-14 2-2a4 4 0 0 1 6 6l-2 2"},
       ...(hasTag("project-models") ? [{id: "models", label: "Project models", description: "Models available to scoped projects.", nodes: ["project-models-card"], icon: "m12 3-9 5 9 5 9-5-9-5ZM3 13l9 5 9-5M3 18l9 5 9-5"}] : []),
@@ -1056,7 +1066,26 @@ function renderVariants(data) {
     const group = document.createElement("li");
     group.className = "model-group";
     const head = document.createElement("strong");
-    head.textContent = model.title + " · running " + model.current_quant + " on " + model.current_engine + (model.capabilities.length ? " · " + model.capabilities.join(", ") : "");
+    head.textContent = model.title + " · " + model.state + " · " + model.current_quant + " on " + model.current_engine + (model.capabilities.length ? " · " + model.capabilities.join(", ") : "");
+    const controls = document.createElement("span");
+    controls.className = "engine-option";
+    for (const [action, label, off] of [["start", "Start", model.state === "running"], ["stop", "Stop", model.state === "stopped"], ["restart", "Restart", model.state === "stopped"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.disabled = off;
+      button.setAttribute("aria-label", label + " " + model.title);
+      button.onclick = async () => {
+        $("variants-error").textContent = ""; $("variants-note").textContent = label + "ing " + model.title + "...";
+        button.disabled = true;
+        try {
+          const done = await call("POST", "models/" + model.name + "/" + action, undefined, 300000);
+          $("variants-note").textContent = model.title + " is " + done.state + ".";
+          await refreshVariants();
+        } catch (error) { $("variants-note").textContent = ""; report(error, "variants-error"); await refreshVariants().catch(() => {}); }
+      };
+      controls.append(button);
+    }
     const list = document.createElement("ul");
     list.className = "update-list";
     list.setAttribute("aria-label", model.title + " builds");
@@ -1106,10 +1135,48 @@ function renderVariants(data) {
       }
       return item;
     }));
-    group.append(head, list);
+    group.append(head, controls, list);
     return group;
   });
   $("variant-list").replaceChildren(...groups);
+}
+function renderMarket(data) {
+  $("market-hardware").textContent = data.summary;
+  $("market-list").replaceChildren(...data.models.map(model => {
+    const group = document.createElement("li");
+    group.className = "model-group";
+    const head = document.createElement("strong");
+    head.textContent = model.title + (model.variants.length ? "" : " · " + (model.note || "No other variants in its repository."));
+    const list = document.createElement("ul");
+    list.className = "update-list";
+    list.setAttribute("aria-label", model.title + " variants");
+    list.append(...model.variants.map(row => {
+      const item = document.createElement("li");
+      const text = document.createElement("span");
+      text.textContent = row.quant + " · about " + row.estimated_mb + " MB · " + row.disk_mb + " MB download" + (row.runs_on ? " · runs on the " + row.runs_on.toUpperCase() : "") + (row.fits === false ? " · " + row.reason : row.fits === null ? " · could not check if it fits" : "");
+      item.append(text);
+      const act = document.createElement("button");
+      act.type = "button";
+      act.textContent = row.added ? "Remove" : "Add";
+      act.disabled = !row.added && row.fits === false;
+      act.setAttribute("aria-label", (row.added ? "Remove " : "Add ") + model.title + " " + row.quant);
+      act.onclick = async () => {
+        $("market-error").textContent = ""; $("market-note").textContent = "";
+        try {
+          await (row.added ? call("DELETE", "marketplace/" + model.name + "/" + encodeURIComponent(row.quant)) : call("POST", "marketplace/" + model.name + "/add", {quant: row.quant}));
+          $("market-note").textContent = row.added ? "Removed " + row.quant + " from " + model.title + "." : "Added " + row.quant + " to " + model.title + ". Download and run it on the Models page.";
+          await Promise.all([refreshMarket(), refreshVariants()]);
+        } catch (error) { report(error, "market-error"); }
+      };
+      item.append(act);
+      return item;
+    }));
+    group.append(head, list);
+    return group;
+  }));
+}
+async function refreshMarket() {
+  if (hasTag("variants")) renderMarket(await call("GET", "marketplace", undefined, 30000));
 }
 async function refreshVariants() {
   if (hasTag("variants")) renderVariants(await call("GET", "models"));
@@ -1229,7 +1296,7 @@ async function signIn(password) {
     $("dashboard").hidden = false;
     $("signout").focus();
     ensurePlaygroundToken();
-    await Promise.all([refreshHealth(), refreshWorkers().catch(error => report(error, "page-error")), refreshUpdates().catch(error => report(error, "page-error")), refreshVoices().catch(error => report(error, "page-error")), refreshVariants().catch(error => report(error, "page-error")), refreshSettings().catch(error => report(error, "page-error"))]);
+    await Promise.all([refreshHealth(), refreshWorkers().catch(error => report(error, "page-error")), refreshUpdates().catch(error => report(error, "page-error")), refreshVoices().catch(error => report(error, "page-error")), refreshVariants().catch(error => report(error, "page-error")), refreshMarket().catch(error => report(error, "page-error")), refreshSettings().catch(error => report(error, "page-error"))]);
     if (admin) poll = setInterval(pollStatus, 10000);
   } catch (error) {
     try { sessionStorage.removeItem(storageKey); } catch {}

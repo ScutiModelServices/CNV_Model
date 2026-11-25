@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 
 from catalog import ModelEntry
-from errors import CapabilityError, EngineError, UnknownModel
+from errors import CapabilityError, EngineError, ModelStopped, UnknownModel
 
 
 class ModelRouter:
     """One loaded model per (model, build, engine); `parallel` generations run at once across all models."""
 
     def __init__(self, catalog: dict[str, ModelEntry], adapters: dict[str, Any],
-                 quants: dict[str, str] | None = None, parallel: int = 1, engines: dict[str, str] | None = None) -> None:
+                 quants: dict[str, str] | None = None, parallel: int = 1, engines: dict[str, str] | None = None,
+                 guard: Callable[[ModelEntry, str, str], str | None] | None = None) -> None:
         self.catalog, self.adapters = catalog, adapters
+        self.stopped: set[str] = set()  # models the user stopped: requests are refused until they are started
+        self.guard = guard  # (model, build, engine) -> why it cannot be loaded here, or None
         self.quants, self.engines = dict(quants or {}), dict(engines or {})  # the user's choice per model
         self._loaded: dict[tuple[str, str, str], Any] = {}
         self._lock = threading.Lock()
@@ -62,6 +65,28 @@ class ModelRouter:
         self.quants[name], self.engines[name] = quant, engine
         self.forget(name)
 
+    def state_of(self, name: str) -> str:
+        """`stopped` (refuses requests), `running` (loaded here) or `ready` (loads on its first request)."""
+        if name in self.stopped:
+            return "stopped"
+        return "running" if any(key[0] == name for key in self._loaded) else "ready"
+
+    async def start(self, name: str) -> None:
+        """Allow requests again and load the model now."""
+        entry = self.entry(name)
+        self.stopped.discard(name)
+        await asyncio.to_thread(self._model, entry, self.engine_of(entry))
+
+    async def stop(self, name: str) -> None:
+        """Refuse requests and free the model: drop the handle here and tell the engine to unload it."""
+        entry = self.entry(name)
+        self.stopped.add(name)
+        self.forget(name)
+        try:
+            await asyncio.to_thread(self.adapters[self.engine_of(entry)].unload, entry, self.quant_of(entry))
+        except EngineError:
+            pass  # the engine is down or does not have it: nothing is loaded
+
     def forget(self, name: str | None = None) -> None:
         with self._lock:
             for key in [key for key in self._loaded if name is None or key[0] == name]:
@@ -72,11 +97,15 @@ class ModelRouter:
         quant = self.quant_of(entry)
         with self._lock:
             if (entry.name, quant, engine) not in self._loaded:
+                if self.guard and (reason := self.guard(entry, quant, engine)):
+                    raise EngineError(reason, 503)
                 self._loaded[entry.name, quant, engine] = self.adapters[engine].load(entry, quant)
             return self._loaded[entry.name, quant, engine], quant
 
     def _prepare(self, model: str, engine: str | None, tools: list[dict[str, Any]] | None) -> tuple[ModelEntry, str, dict[str, Any]]:
         entry = self.entry(model)
+        if entry.name in self.stopped:
+            raise ModelStopped(entry.name)
         engine = self.engine_of(entry, engine)
         if tools and "tools" not in entry.capabilities:
             raise CapabilityError(f"{entry.name} does not support tools")

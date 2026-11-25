@@ -41,11 +41,14 @@ class FakeAdapter:
     same_machine = False
 
     def __init__(self, name, **options):
-        self.name, self.options, self.loads, self.downloads = name, options, [], []
+        self.name, self.options, self.loads, self.downloads, self.unloads = name, options, [], [], []
 
     def load(self, entry, quant):
         self.loads.append((entry.name, quant))
         return FakeLoaded(entry.source(quant, self.name), **self.options)
+
+    def unload(self, entry, quant):
+        self.unloads.append((entry.name, quant))
 
     def downloaded(self):
         return set()
@@ -57,4 +60,4 @@ class FakeAdapter:
 def make_router(**options):
     """A router over the shipped catalog whose engines are fakes."""
     adapters = {"ollama": FakeAdapter("ollama", **options), "llamacpp": FakeAdapter("llamacpp", **options)}
-    return ModelRouter(CATALOG, adapters)
+    return ModelRouter(dict(CATALOG), adapters)

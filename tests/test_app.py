@@ -129,3 +129,86 @@ def test_connection_settings_come_from_saved_values_and_are_validated(tmp_path):
     c = TestClient(create_app(router, "pw", tokens=store, config=config, fetch_sizes=no_hub))
     assert c.put("/admin/settings", json={"values": {"ollama_url": "box:11434"}}, headers=ADMIN).status_code == 422
     assert c.put("/admin/settings", json={"values": {"ollama_url": "http://other:11434"}}, headers=ADMIN).status_code == 200
+
+
+def hub_tree(_url):
+    return [{"path": "lfm3-Q4_K_M.gguf", "size": 1_048_576 * 1048}, {"path": "lfm3-IQ4_XS.gguf", "size": 1_048_576 * 900},
+            {"path": "lfm3-BF16.gguf", "size": 1_048_576 * 6000}]
+
+
+def tight_machine(monkeypatch, router, free_mb):
+    """The engines run on this machine and it has little free memory."""
+    import app as app_module
+
+    monkeypatch.setattr(app_module.hardware, "probe", lambda: {"cpu_cores": 4, "ram_total_mb": 16000, "gpu": None, "ram_available_mb": free_mb})
+    for adapter in router.adapters.values():
+        adapter.same_machine = True
+
+
+def test_stop_start_restart_and_a_stopped_model_refuses_requests(tmp_path):
+    router = make_router()
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(router, "pw", tokens=store, fetch_sizes=no_hub))
+    token = {"X-Internal-Token": store.create("t")["token"]}
+    act = lambda name, action: c.post(f"/admin/models/{name}/{action}", headers=ADMIN)
+    assert c.post("/v1/chat", json=BODY, headers=token).status_code == 200
+    assert act("lfm3", "stop").json() == {"state": "stopped"}
+    refused = c.post("/v1/chat", json=BODY, headers=token)
+    assert refused.status_code == 503 and "stopped" in refused.json()["detail"]
+    assert c.post("/v1/chat", json={**BODY, "model": "sparkx26"}, headers=token).status_code == 200  # others keep running
+    assert router.adapters["ollama"].unloads == [("lfm3", "Q4_K_M")]
+    assert act("lfm3", "start").json() == {"state": "running"}
+    assert c.post("/v1/chat", json=BODY, headers=token).status_code == 200
+    assert act("lfm3", "restart").json() == {"state": "running"} and act("zzz", "stop").status_code == 404
+    act("lfm3", "stop")
+    assert next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")["state"] == "stopped"
+    from settings import load
+    assert load(store.settings_path)["stopped"] == ["lfm3"]  # saved, so every replica and a restart keep it
+
+
+def test_only_builds_that_fit_are_downloaded_or_loaded(monkeypatch):
+    router = make_router()
+    tight_machine(monkeypatch, router, 2000)  # limit 1700 MB: Q4_K_M needs 1553, Q8_0 needs 2336
+    c = client(router, admin_password="pw")
+    big = c.post("/admin/models/lfm3/download", json={"quant": "Q8_0", "engine": "ollama"}, headers=ADMIN)
+    assert big.status_code == 409 and "Needs about" in big.json()["detail"] and router.adapters["ollama"].downloads == []
+    assert c.post("/admin/models/lfm3/download", json={"quant": "Q4_K_M", "engine": "ollama"}, headers=ADMIN).status_code == 200
+    assert c.put("/admin/models/lfm3/run", json={"quant": "Q8_0", "engine": "ollama"}, headers=ADMIN).status_code == 409
+
+
+def test_a_request_cannot_load_a_build_that_does_not_fit(monkeypatch):
+    router = make_router()
+    tight_machine(monkeypatch, router, 500)
+    c = client(router)
+    refused = c.post("/v1/chat", json=BODY)
+    assert refused.status_code == 503 and "Needs about" in refused.json()["detail"] and router.adapters["ollama"].loads == []
+
+
+def test_marketplace_lists_adds_and_removes_hub_variants(tmp_path):
+    router = make_router()
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(router, "pw", tokens=store, fetch_sizes=hub_tree))
+    listed = next(m for m in c.get("/admin/marketplace", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
+    assert [v["quant"] for v in listed["variants"]] == ["IQ4_XS", "BF16"]  # Q4_K_M is curated already
+    bitnet = next(m for m in c.get("/admin/marketplace", headers=ADMIN).json()["models"] if m["name"] == "bitnet2b")
+    assert bitnet["variants"] == [] and "sidecar" in bitnet["note"]
+    assert c.post("/admin/marketplace/lfm3/add", json={"quant": "NOPE"}, headers=ADMIN).status_code == 404
+    assert c.post("/admin/marketplace/bitnet2b/add", json={"quant": "IQ4_XS"}, headers=ADMIN).status_code == 422
+    assert c.post("/admin/marketplace/lfm3/add", json={"quant": "IQ4_XS"}, headers=ADMIN).status_code == 200
+    lfm3 = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
+    assert "IQ4_XS" in [b["id"] for b in lfm3["builds"]]
+    assert c.put("/admin/models/lfm3/run", json={"quant": "IQ4_XS", "engine": "ollama"}, headers=ADMIN).status_code == 200
+    assert c.delete("/admin/marketplace/lfm3/IQ4_XS", headers=ADMIN).status_code == 409  # it is the build in use
+    c.put("/admin/models/lfm3/run", json={"quant": "Q4_K_M", "engine": "ollama"}, headers=ADMIN)
+    assert c.delete("/admin/marketplace/lfm3/IQ4_XS", headers=ADMIN).status_code == 200
+    lfm3 = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
+    assert "IQ4_XS" not in [b["id"] for b in lfm3["builds"]]
+
+
+def test_marketplace_refuses_a_variant_that_does_not_fit(monkeypatch, tmp_path):
+    router = make_router()
+    tight_machine(monkeypatch, router, 3000)  # limit 2550 MB: BF16 (6000 MB) cannot run
+    c = TestClient(create_app(router, "pw", tokens=TokenStore(str(tmp_path / "tokens.json")), fetch_sizes=hub_tree))
+    listed = next(m for m in c.get("/admin/marketplace", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
+    assert next(v for v in listed["variants"] if v["quant"] == "BF16")["fits"] is False
+    assert c.post("/admin/marketplace/lfm3/add", json={"quant": "BF16"}, headers=ADMIN).status_code == 409

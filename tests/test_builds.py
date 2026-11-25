@@ -40,6 +40,20 @@ def test_live_size_replaces_stored_size():
     assert listing(ENTRY, HW, CURRENT, {}, {"Q4_K_M": 1111})[0]["disk_mb"] == 1111
 
 
+def test_marketplace_lists_hub_quants_the_catalog_lacks_and_whether_they_fit():
+    from builds import marketplace
+    files = {"Q4_K_M": {"path": "m-Q4_K_M.gguf", "mb": 1000}, "IQ4_XS": {"path": "m-IQ4_XS.gguf", "mb": 900},
+             "BF16": {"path": "m-BF16.gguf", "mb": 6000}}
+    rows = marketplace(ENTRY, {"Q4_K_M"}, files, HW["ollama"], {"IQ4_XS"})
+    assert [r["quant"] for r in rows] == ["IQ4_XS", "BF16"]
+    assert rows[0]["fits"] is True and rows[0]["added"] and rows[1]["fits"] is False and not rows[1]["added"]
+
+
+def test_hub_files_keeps_file_names():
+    from builds import hub_files
+    assert hub_files("org/m", fake_fetch)["Q8_0"] == {"path": "m-q8_0.gguf", "mb": 1790}
+
+
 def fake_fetch(_url):
     return [{"path": "m-Q4_K_M.gguf", "size": 1_048_576 * 1010}, {"path": "README.md", "size": 5},
             {"path": "m-q8_0.gguf", "size": 1_048_576 * 1790}]

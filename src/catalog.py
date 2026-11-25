@@ -6,7 +6,7 @@ chosen by the user, not by the catalog."""
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 CAPABILITIES = frozenset({"tools", "thinking", "schema", "project"})
@@ -89,3 +89,11 @@ def load_catalog(folder: Path) -> dict[str, ModelEntry]:
     if not entries:
         raise CatalogError(f"no model files in {folder}")
     return {entry.name: entry for entry in entries}
+
+
+def with_extras(entry: ModelEntry, extras: list[dict]) -> ModelEntry:
+    """`entry` plus the quantizations the user added from the marketplace (they run on Ollama only: a llama.cpp
+    build needs its own sidecar, so it is added in the catalog file)."""
+    have = {b.quant for b in entry.builds}
+    added = tuple(Build(x["quant"], int(x["file_mb"]), "Added from the marketplace.", {"ollama": {}}) for x in extras if x["quant"] not in have)
+    return replace(entry, builds=entry.builds + added)

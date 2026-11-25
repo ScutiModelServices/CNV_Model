@@ -151,6 +151,11 @@ class OllamaAdapter:
     def load(self, entry: ModelEntry, quant: str) -> OllamaLoaded:
         return OllamaLoaded(self.url, entry.source(quant, "ollama"), live=self._live)
 
+    def unload(self, entry: ModelEntry, quant: str) -> None:
+        """Ask Ollama to free the model now (keep_alive 0)."""
+        model = entry.source(quant, "ollama")
+        _json_call(self.url, "/api/generate", {"model": model, "prompt": "", "stream": False, "keep_alive": 0}, 30, model)
+
     def downloaded(self) -> set[str]:
         """Names of every model Ollama has on disk, with and without an implicit `:latest`."""
         reply = _json_call(self.url, "/api/tags", None, 15, "")
