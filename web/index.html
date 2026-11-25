@@ -188,7 +188,19 @@ dialog input { width: 100%; }
 .m-quant { white-space: nowrap; color: var(--text); background: none; border: 0; padding: 2px; min-height: 0; text-align: left; font-weight: 650; border-radius: var(--radius-sm); }
 .m-quant::after { content: "›"; margin-left: 6px; color: var(--muted); }
 .m-quant:hover { background: none; }
-.m-builds th[scope="row"] { display: flex; align-items: center; gap: 8px; }
+.m-builds.m-rows, .m-builds.m-rows tbody { display: block; }
+.m-builds.m-rows tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); }
+.m-builds.m-rows td { display: block; padding: 0; border: 0; }
+.m-builds.m-rows .m-progress-tr { border-top: 0; padding-top: 0; }
+.m-builds.m-rows .m-progress-tr td { grid-column: 1 / -1; }
+.m-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.m-builds.m-rows .m-note { margin-top: 2px; }
+.m-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.m-chip { display: inline-flex; gap: 5px; font-size: .8em; padding: 2px 9px; border-radius: var(--radius-sm); background: var(--code-bg); color: var(--muted); }
+.m-chip b { font-family: var(--mono); font-weight: 500; color: var(--text); }
+.m-builds.m-rows .m-actions-cell { grid-column: auto; width: auto; white-space: nowrap; }
+.m-builds.m-rows .m-actions { justify-content: flex-end; flex-wrap: nowrap; }
+@container (max-width: 560px) { .m-builds.m-rows tr { grid-template-columns: minmax(0, 1fr); } .m-builds.m-rows .m-actions-cell { grid-column: 1 / -1; } .m-builds.m-rows .m-actions { justify-content: flex-start; } }
 .m-seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-md); overflow: hidden; }
 .m-seg button { border: 0; border-radius: 0; min-height: 34px; background: transparent; }
 .m-seg button + button { border-left: 1px solid var(--border); }
@@ -1465,14 +1477,16 @@ function buildRows(model, row) {
         reason: !option.downloaded ? "Not downloaded." : loaded ? stopFirst : inUse ? "This build is in use: stop the model or select another build first." : "",
         onclick: event => askDelete(event.currentTarget, model, row, option)})));
     const tr = mEl("tr", {class: "m-row-link", "data-selected": option.current ? "" : null, onclick: event => { if (!event.target.closest("button")) quant.click(); }},
-      mEl("th", {scope: "row"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null),
-      mEl("td", {class: "m-note"}, row.note),
-      mEl("td", {class: "num m-engine-col"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Engine"), option.engine),
-      mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Memory est."), row.estimated_mb + " MB"),
-      mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Download size"), row.disk_mb + " MB"),
+      mEl("td", {class: "m-main"},
+        mEl("div", {class: "m-name"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null),
+        mEl("div", {class: "m-note"}, row.note),
+        mEl("div", {class: "m-chips"},
+          mEl("span", {class: "m-chip"}, "Engine ", mEl("b", {}, option.engine)),
+          mEl("span", {class: "m-chip"}, "Memory ", mEl("b", {}, row.estimated_mb + " MB")),
+          mEl("span", {class: "m-chip"}, "Download ", mEl("b", {}, row.disk_mb + " MB")))),
       actions);
     if (!downloading) return [tr];
-    return [tr, mEl("tr", {class: "m-progress-tr"}, mEl("td", {colspan: "6"},
+    return [tr, mEl("tr", {class: "m-progress-tr"}, mEl("td", {colspan: "2"},
       mEl("div", {class: "m-progress", role: "progressbar", "aria-label": "Download progress for " + where}, mEl("div", {class: "m-progress-fill"})),
       mEl("span", {class: "m-progress-text mono", role: "status"})))];
   });
@@ -1495,9 +1509,7 @@ function renderVariants(data) {
     const blocked = model.builds.flatMap(row => row.engines.filter(option => option.fits === false)
       .map(option => (model.builds.length > 1 ? row.title + " on " + option.engine + ": " : "") + option.reason));
     const banner = blocked.length ? mEl("div", {class: "m-banner", role: "note"}, mEl("span", {"aria-hidden": "true"}, "⚠"), mEl("div", {}, ...blocked.map(text => mEl("p", {}, text)))) : null;
-    const table = mEl("table", {class: "m-builds", "aria-label": model.title + " builds"},
-      mEl("thead", {}, mEl("tr", {}, mEl("th", {scope: "col"}, "Build"), mEl("th", {scope: "col"}, "Note"), mEl("th", {scope: "col", class: "num"}, "Engine"),
-        mEl("th", {scope: "col", class: "num"}, "Memory est."), mEl("th", {scope: "col", class: "num"}, "Download size"), mEl("th", {scope: "col", class: "m-right"}, "Actions"))),
+    const table = mEl("table", {class: "m-builds m-rows", "aria-label": model.title + " builds"},
       mEl("tbody", {}, ...model.builds.flatMap(row => buildRows(model, row)).flat()));
     return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, banner, table);
   }));
