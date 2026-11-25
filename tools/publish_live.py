@@ -35,6 +35,8 @@ DEPLOY_PATHS = [
     "uv.lock",  # the Dockerfile copies it: `uv sync --frozen`
     "src",
     "web",
+    "configs",  # the model catalog the Dockerfile copies and the service reads
+    "sidecars",  # compose builds ./sidecars/bitnet
     "README.md",
     "deployment.md",  # README links to it
     "CHANGELOG.md",  # README links to it
