@@ -940,7 +940,7 @@ async function call(method, path, body, timeout = 10000) {
   const data = await response.json().catch(() => ({}));
   if (activeSession.signal.aborted) throw new DOMException("Signed out", "AbortError");
   if (!response.ok) {
-    const message = (response.status === 502 || response.status === 422) && typeof data.detail === "string" ? data.detail
+    const message = [409, 422, 502, 503].includes(response.status) && typeof data.detail === "string" ? data.detail
       : response.status === 401
       ? "Wrong admin password. Check the password and that " + CONFIG.adminEnv + " is set on the server."
       : "Request failed (" + response.status + "). Check the service and try again.";
