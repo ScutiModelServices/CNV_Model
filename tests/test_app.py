@@ -260,6 +260,16 @@ def test_a_build_that_needs_avx2_is_refused_on_a_cpu_without_it(monkeypatch):
     assert open_door.post("/v1/chat", json=BODY).status_code == 200  # the Ollama models are not affected
 
 
+def test_a_stopped_model_does_not_answer_from_the_cache(tmp_path):
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(make_router(), "pw", tokens=store, fetch_sizes=no_hub, cache_size=10))
+    token = {"X-Internal-Token": store.create("t")["token"]}
+    assert c.post("/v1/chat", json=BODY, headers=token).status_code == 200
+    assert c.post("/v1/chat", json=BODY, headers=token).headers["x-cache"] == "hit"
+    c.post("/admin/models/lfm3/stop", headers=ADMIN)
+    assert c.post("/v1/chat", json=BODY, headers=token).status_code == 503
+
+
 def test_a_build_the_cpu_cannot_run_can_be_deleted_without_stopping(monkeypatch):
     import builds
 
