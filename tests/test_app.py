@@ -258,3 +258,13 @@ def test_a_build_that_needs_avx2_is_refused_on_a_cpu_without_it(monkeypatch):
     row = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "bitnet2b")["builds"][0]["engines"][0]
     assert row["fits"] is False and "AVX2" in row["reason"]
     assert open_door.post("/v1/chat", json=BODY).status_code == 200  # the Ollama models are not affected
+
+
+def test_a_build_the_cpu_cannot_run_can_be_deleted_without_stopping(monkeypatch):
+    import builds
+
+    monkeypatch.setattr(builds, "cpu_flags", lambda: {"avx"})
+    router = make_router()
+    c = client(router, admin_password="pw")
+    deleted = c.post("/admin/models/bitnet2b/delete", json={"quant": "i2_s", "engine": "llamacpp"}, headers=ADMIN)
+    assert deleted.status_code == 200 and router.adapters["llamacpp"].deletes == [("bitnet2b", "i2_s")]
