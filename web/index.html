@@ -11,14 +11,14 @@
   --bg: light-dark(#ffffff, #17171a);
   --surface: light-dark(#f6f6f7, #1f1f23);
   --text: light-dark(#1c1c1f, #e8e8ea);
-  --muted: light-dark(#6b6b73, #9a9aa3);
-  --border: light-dark(#e3e3e6, #2f2f35);
+  --muted: light-dark(#62626a, #aaaab2);
+  --border: light-dark(#dedee2, #36363c);
   --accent: light-dark(#b23d06, #ff7a33);
   --accent-contrast: light-dark(#ffffff, #17171a);
   --code-bg: light-dark(#f3f3f4, #232328);
-  --danger: light-dark(#d9480f, #ff8a4c);
-  --success: light-dark(#1baf7a, #199e70);
-  --warning: light-dark(#a86a00, #f0b429);
+  --danger: light-dark(#a52e26, #ff9c88);
+  --success: light-dark(#116647, #7adab2);
+  --warning: light-dark(#815000, #f0b429);
   --status-failed: light-dark(#d03b3b, #ff8282);
   --status-running: light-dark(#2a78d6, #3987e5);
   --status-ok: color-mix(in srgb, var(--muted) 70%, var(--bg));
@@ -421,6 +421,116 @@ progress { accent-color: var(--accent); border-radius: var(--radius-full); }
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; scroll-behavior: auto !important; }
   button[aria-busy="true"]::before { animation-duration: 1.2s !important; animation-iteration-count: infinite !important; }
 }
+/* Citadel admin shell: dark top bar, flat sidebar, page head, panels. Later rules override the older shell rules above. */
+:root {
+  --header: light-dark(#1c1c1f, #101012);
+  --header-text: #f4f4f5;
+  --sans: Inter, system-ui, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+button { min-height: 34px; padding: 0 12px; border-color: var(--line); border-radius: var(--radius-md); background: var(--bg); font-weight: 500; }
+button:hover { background: var(--code-bg); border-color: var(--line); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); font-weight: 650; }
+button.primary:hover { background: color-mix(in srgb, var(--accent) 94%, var(--accent-contrast)); }
+button.danger { color: var(--danger); border-color: currentColor; }
+button:disabled { opacity: 1; color: var(--muted); background: var(--surface); border-color: var(--border); }
+input, textarea, select { min-height: 36px; border-color: var(--line); }
+input[type="checkbox"], input[type="radio"] { min-height: 0; width: 18px; height: 18px; }
+h1 { font-size: 30px; font-weight: 650; letter-spacing: -.035em; line-height: 1.15; }
+h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
+.muted, .description, .hint { font-size: 1em; }
+#dashboard { --sidebar-width: 216px; grid-template-rows: 56px minmax(0, 1fr); }
+#dashboard.is-collapsed { --sidebar-width: 60px; }
+.topbar { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 18px; background: var(--header); color: var(--header-text); border-bottom: 1px solid #424247; }
+.topbar .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.topbar .brand-icon { width: 30px; height: 30px; }
+.topbar .divider { width: 1px; height: 21px; background: #646469; }
+.topbar .address { color: #b9b9c0; font-weight: 400; font-size: .85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar-actions { display: flex; align-items: center; gap: 10px; }
+.topbar .badge { color: var(--header-text); border-color: #737378; background: transparent; }
+.topbar .badge[data-state="Healthy"] svg { color: #7adab2; }
+.topbar .badge[data-state="Starting"] { color: #f0b429; }
+.topbar .badge[data-state="Unreachable"] { color: #ff9c88; }
+.topbar button { color: inherit; background: transparent; border-color: #737378; min-height: 36px; gap: 8px; display: inline-flex; align-items: center; }
+.topbar button:hover { background: #38383d; border-color: #737378; }
+.topbar :focus-visible { outline-color: #ff7a33; }
+#profile-menu { position: fixed; inset: 62px 12px auto auto; margin: 0; width: min(250px, calc(100vw - 24px)); padding: 12px; display: none; gap: 10px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-pop); }
+#profile-menu:popover-open { display: grid; }
+#profile-menu button { color: var(--text); background: var(--bg); border-color: var(--line); }
+#profile-menu button:hover { background: var(--code-bg); }
+#profile-menu button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+#theme { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-sidebar { gap: 16px; padding: 14px 8px 10px; }
+.admin-nav { gap: 3px; }
+.admin-nav a { color: var(--text); padding: 0 11px; font-size: 1em; }
+.admin-nav a[aria-current="page"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); box-shadow: inset 2px 0 var(--accent); font-weight: 650; }
+.admin-nav svg { width: 18px; height: 18px; }
+#sidebar-toggle { margin-top: auto; width: 100%; justify-content: flex-start; gap: 10px; min-height: 44px; padding: 0 11px; border: 0; background: transparent; color: var(--muted); font-size: 1em; font-weight: 500; }
+#sidebar-toggle:hover { background: var(--code-bg); }
+#dashboard.is-collapsed #sidebar-toggle { justify-content: center; padding: 0; }
+#dashboard.is-collapsed .toggle-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#dashboard .header, #page-content { padding-inline: max(32px, calc((100% - 1240px) / 2)); }
+#dashboard .header { padding-top: 28px; padding-bottom: 0; border-bottom: 0; }
+#dashboard .header h1 { font-size: 30px; margin-right: 0; }
+#page-content { padding-top: 6px; padding-bottom: 38px; }
+.page-view { max-width: none; margin: 0; }
+.page-view > .description { margin-bottom: 18px; }
+.page-view .card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 16px; margin: 0 0 14px; }
+.page-view > .card + .card { padding-top: 16px; }
+#variants-card, #market-card { border: 0; background: none; padding: 0; }
+.page-view[data-page] > .card > .section-heading { position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+.page-view[data-page="variants"] > .card > .section-heading, .page-view[data-page="marketplace"] > .card > .section-heading { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+#variants-card > .description, #market-card > .description { margin-bottom: 12px; }
+.section-heading { margin-bottom: 4px; }
+.page-view button { font-weight: 500; }
+.page-view button.primary { font-weight: 650; }
+.page-view .tiles { gap: 12px; margin-bottom: 14px; }
+.page-view .tile { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 12px 14px; }
+.page-view .tile:last-child { border-right: 1px solid var(--border); }
+.readiness { border: 1px solid var(--border); border-radius: var(--radius-lg); margin-bottom: 14px; }
+.notice { border: 1px solid var(--border); }
+#overview-details-section, #overview-usage { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); padding: 16px; margin: 0 0 14px; }
+.overview-details { display: block; margin: 8px 0 0; }
+.overview-details > div { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 2fr); gap: 10px; border-top: 1px solid var(--border); padding: 9px 0; }
+.overview-details dt { margin: 0; font-size: 1em; }
+.overview-details dd { margin: 0; }
+.overview-usage header { margin-bottom: 4px; }
+.connect-row { border-radius: var(--radius-md); background: var(--bg); }
+#settings-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px 16px; }
+.setting { padding: 0; border-bottom: 0; }
+.fresh, .create-form .field input { border-radius: var(--radius-md); }
+.saved { color: var(--ok-text); }
+.error { color: var(--danger-text); }
+#playground { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 10px 20px; align-items: start; }
+#playground > #pg-title { grid-column: 1 / -1; position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal; }
+#playground > #pg-form { grid-column: 1; grid-row: 2 / span 8; }
+#playground > :not(#pg-title):not(#pg-form) { grid-column: 2; min-width: 0; }
+#pg-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; margin-top: 12px; }
+#pg-fields .pg-field:has(textarea), #pg-fields .description { grid-column: 1 / -1; }
+.pg-field { min-width: 0; display: grid; align-content: start; gap: 5px; }
+.pg-field label { margin: 0; font-weight: 550; }
+.pg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+@media (max-width: 1100px) { #playground { grid-template-columns: minmax(0, 1fr); } #playground > #pg-form, #playground > :not(#pg-title):not(#pg-form) { grid-column: 1; grid-row: auto; } }
+@media (max-width: 1000px) {
+  #dashboard, #dashboard.is-collapsed { --sidebar-width: 60px; }
+  .admin-nav a, #dashboard.is-collapsed .admin-nav a { justify-content: center; padding: 0; }
+  .admin-nav .nav-label, .toggle-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .admin-nav svg { display: block; }
+  #sidebar-toggle { justify-content: center; padding: 0; }
+  #dashboard .header, #page-content { padding-inline: 20px; }
+}
+@media (max-width: 640px) {
+  .topbar { padding-inline: 10px; }
+  .topbar .address, .profile-label { display: none; }
+  #dashboard .header, #page-content { padding-inline: 10px; }
+  #dashboard .header h1 { font-size: 25px; }
+  .page-view .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .overview-details > div { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  input, textarea, select { font-size: 16px; min-height: 44px; }
+  button { min-height: 44px; }
+}
 </style>
 </head>
 <body>
@@ -441,22 +551,25 @@ progress { accent-color: var(--accent); border-radius: var(--radius-full); }
     <p class="muted">Your sign-in stays in this browser tab until you sign out.</p>
   </section>
   <section id="dashboard" hidden aria-labelledby="page-title">
-    <aside id="admin-sidebar" class="admin-sidebar" aria-label="Service navigation">
-      <div class="sidebar-brand"><img class="brand-icon" src="icon.png" alt=""><strong>Model services</strong></div>
-      <div class="sidebar-service"><strong id="service-name"></strong><p id="address" class="address mono"></p></div>
-      <nav id="admin-nav" class="admin-nav" aria-label="Admin pages"></nav>
-      <div class="sidebar-footer">
-        <button id="theme" class="theme" type="button" aria-label="Change color theme"></button>
-        <button id="signout" type="button" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H4v14h5m5-12 5 5-5 5m-6-5h11"/></svg><span class="footer-label">Sign out</span></button>
+    <header class="topbar">
+      <div class="brand"><img class="brand-icon" src="icon.png" alt=""><span class="divider" aria-hidden="true"></span><strong id="service-name"></strong><span id="address" class="address mono"></span></div>
+      <div class="topbar-actions">
+        <span id="health" class="badge" data-state="Starting" role="status"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="health-icon" d="M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/></svg><span id="health-text">Starting</span></span>
+        <button id="profile" type="button" popovertarget="profile-menu" aria-label="Account menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg><span class="profile-label">Admin</span></button>
       </div>
+      <div id="profile-menu" popover>
+        <strong>Theme</strong>
+        <div id="theme" role="group" aria-label="Theme"><button type="button" data-theme-choice="light">Light</button><button type="button" data-theme-choice="dark">Dark</button><button type="button" data-theme-choice="system">System</button></div>
+        <button id="signout" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H4v14h5m5-12 5 5-5 5m-6-5h11"/></svg>Sign out</button>
+      </div>
+    </header>
+    <aside id="admin-sidebar" class="admin-sidebar" aria-label="Service navigation">
+      <nav id="admin-nav" class="admin-nav" aria-label="Admin pages"></nav>
+      <button id="sidebar-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="true" aria-label="Collapse sidebar" aria-keyshortcuts="Control+B"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM9 4v16m6-12-3 4 3 4"/></svg><span class="toggle-label">Collapse</span></button>
     </aside>
     <div class="admin-workspace">
     <header class="header">
-      <button id="sidebar-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="true" aria-label="Collapse sidebar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM9 4v16m6-12-3 4 3 4"/></svg><span class="toggle-label">Collapse</span></button>
       <h1 id="page-title" tabindex="-1">Overview</h1>
-      <div class="header-actions">
-        <span id="health" class="badge" data-state="Starting" role="status"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="health-icon" d="M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/></svg><span id="health-text">Starting</span></span>
-      </div>
     </header>
     <div id="page-content" aria-labelledby="page-title">
     <section id="overview-summary">
@@ -660,11 +773,7 @@ try { theme = localStorage.getItem("admin-theme") || "system"; } catch {}
 if (!["system", "light", "dark"].includes(theme)) theme = "system";
 function applyTheme() {
   document.documentElement.style.colorScheme = theme === "system" ? "light dark" : theme;
-  const label = "Theme: " + theme[0].toUpperCase() + theme.slice(1);
-  $("theme").innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9zM12 3v9h9"/></svg><span class="footer-label"></span>';
-  $("theme").querySelector("span").textContent = label;
-  $("theme").title = label;
-  $("theme").setAttribute("aria-label", label + ". Change color theme");
+  document.querySelectorAll("[data-theme-choice]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme)));
 }
 applyTheme();
 document.title = CONFIG.title + " admin";
@@ -723,11 +832,13 @@ if (CONFIG.extraTile) {
   $("extra-label").textContent = CONFIG.extraTile.label;
 }
 $("updates-card").hidden = !CONFIG.updates;
-$("theme").onclick = () => {
-  theme = ["system", "light", "dark"][(["system", "light", "dark"].indexOf(theme) + 1) % 3];
+$("theme").addEventListener("click", event => {
+  const choice = event.target.closest("[data-theme-choice]")?.dataset.themeChoice;
+  if (!choice) return;
+  theme = choice;
   try { localStorage.setItem("admin-theme", theme); } catch {}
   applyTheme();
-};
+});
 function busy(id, value) {
   $(id).disabled = value;
   $(id).setAttribute("aria-busy", String(value));
@@ -779,7 +890,7 @@ function signOut(focus = true) {
   initializedThreads = false;
   if (focus) $("admin").focus();
 }
-$("signout").onclick = () => signOut();
+$("signout").onclick = () => { $("profile-menu").hidePopover(); signOut(); };
 function report(error, target) {
   if (error.name === "AbortError") return;
   if (error.status === 401) {
@@ -1498,7 +1609,7 @@ async function signIn(password) {
     $("admin").value = "";
     $("signin").hidden = true;
     $("dashboard").hidden = false;
-    $("signout").focus();
+    $("page-title").focus({preventScroll: true});
     ensurePlaygroundToken();
     await Promise.all([refreshHealth(), refreshWorkers().catch(error => report(error, "page-error")), refreshUpdates().catch(error => report(error, "page-error")), refreshVoices().catch(error => report(error, "page-error")), refreshVariants().catch(error => report(error, "page-error")), refreshMarket().catch(error => report(error, "page-error")), refreshSettings().catch(error => report(error, "page-error"))]);
     if (admin) poll = setInterval(pollStatus, 10000);
