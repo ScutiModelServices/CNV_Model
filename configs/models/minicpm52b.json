@@ -2,7 +2,6 @@
   "name": "minicpm52b",
   "title": "MiniCPM5 2B",
   "repo": "openbmb/MiniCPM5-2B-GGUF",
-  "default_quant": "Q4_K_M",
   "capabilities": [
     "tools",
     "thinking"

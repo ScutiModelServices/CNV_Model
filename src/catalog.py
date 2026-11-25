@@ -33,7 +33,6 @@ class ModelEntry:
     name: str
     title: str
     repo: str
-    default_quant: str
     capabilities: frozenset[str]
     builds: tuple[Build, ...]
 
@@ -81,7 +80,7 @@ def _entry(path: Path) -> ModelEntry:
     try:
         raw = json.loads(path.read_text("utf-8"))
         builds = tuple(_build(path, b) for b in raw["builds"])
-        entry = ModelEntry(raw["name"], raw["title"], raw["repo"], raw["default_quant"],
+        entry = ModelEntry(raw["name"], raw["title"], raw["repo"],
                            frozenset(raw.get("capabilities", [])), builds)
     except (OSError, ValueError, KeyError, TypeError) as error:
         raise CatalogError(f"{path.name}: {error}") from error
@@ -89,8 +88,8 @@ def _entry(path: Path) -> ModelEntry:
         raise CatalogError(f"{path.name}: name '{entry.name}' must equal the file name")
     if not entry.capabilities <= CAPABILITIES:
         raise CatalogError(f"{path.name}: unknown capability {sorted(entry.capabilities - CAPABILITIES)}")
-    if entry.default_quant not in {b.quant for b in builds}:
-        raise CatalogError(f"{path.name}: default_quant is not one of the builds")
+    if not builds:
+        raise CatalogError(f"{path.name}: no builds")
     return entry
 
 

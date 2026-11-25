@@ -2,7 +2,6 @@
   "name": "bitnet2b",
   "title": "BitNet b1.58 2B4T",
   "repo": "microsoft/BitNet-b1.58-2B-4T-gguf",
-  "default_quant": "i2_s",
   "capabilities": [],
   "builds": [
     {

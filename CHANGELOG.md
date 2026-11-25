@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- No default build: `default_quant` is gone from the catalog files. A model has no selected build until an admin selects one, and only a downloaded build can be selected (`PUT /admin/models/{name}/run` answers 409 otherwise; the Select button is disabled with the reason). Requests for a model with nothing selected get 503 `has no selected build`. Existing installs must press Select once per model.
 - New model `inklingmini` (Inkling 2 Mini, 26B MoE, from Thinking Machines) with ten Unsloth GGUF builds, `UD-IQ1_S` (7.4 GB) to `UD-Q8_K_XL` (21.8 GB), default `UD-Q4_K_M`, Ollama engine, capabilities `tools` and `thinking`. Text only (vision is not wired). The Ollama on the host must know the `inkling2` architecture. Sizes read from the Hub on 2026-11-25.
 - Fix: a stopped model refuses requests even when the answer is cached (the cache was checked before the stop).
 - Models table redesigned: one row per build and engine, the whole row opens the build details, the engine sits beside the memory estimate, and Select, Download and Uninstall are icon buttons that turn green and stay pressed when already true. A running download shows a progress bar with its percentage at the bottom of its row. Start, Stop and Restart show a spinner while they work. A loaded model cannot change build, download or uninstall (the service answers 409 "stop it first"); other models can. Delete is now called Uninstall.

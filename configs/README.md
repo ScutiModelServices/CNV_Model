@@ -7,7 +7,6 @@
 | `name` | The value of the `model` field in `POST /v1/chat`. |
 | `title` | The label on the admin page. |
 | `repo` | HuggingFace repository of the GGUF files. |
-| `default_quant` | The build used until the user picks another. Must be one of `builds`. |
 | `capabilities` | Any of `tools`, `thinking`, `schema`, `project`. A request that uses one the model lacks gets 422. |
 | `builds` | The builds listed under the model on the admin page, original or quantized: `quant`, `file_mb` (stored size, replaced by the live Hub size on refresh), `note`, and `engines`. |
 

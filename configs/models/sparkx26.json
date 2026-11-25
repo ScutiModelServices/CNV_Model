@@ -2,7 +2,6 @@
   "name": "sparkx26",
   "title": "Spark X2.6 1.7B",
   "repo": "XHToken/Spark-X2.6-1.7B-GGUF",
-  "default_quant": "Q4_K_M",
   "capabilities": [
     "tools",
     "thinking"
