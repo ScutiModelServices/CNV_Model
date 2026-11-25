@@ -7,6 +7,7 @@
 - Admin **Models** card: quantized builds under each model, live sizes from the Hub, per-build Use and Download.
 - Ollama address, GGUF folder and parallel generations are live admin settings (env variables only seed the first start).
 - `llamacpp` models carry their own sidecar `url` in the catalog; there is no `SERVICE_LLAMACPP_URL`.
+- The bitnet.cpp sidecar exits (not restarted) on a CPU without AVX2.
 - A build can require a CPU feature (`cpu` in the catalog): `bitnet2b` needs AVX2, so it is refused on CPUs without it instead of answering `!!!!`.
 - Fix: the bitnet.cpp sidecar rejected `--jinja`; it now starts without chat-template flags and the service sends the BitNet prompt to `/completion` (catalog option `prompt: bitnet`).
 - Download progress bar on the Models page (one download at a time) and a Delete button for downloaded builds.
