@@ -34,7 +34,7 @@ services:
   cnv_bitnet_server:
     build: ./sidecars/bitnet
     image: cnv_bitnet_server:latest
-    restart: unless-stopped
+    restart: on-failure  # it exits 0 on a CPU without AVX2: not restarted, not running
     volumes:
       - ${SERVICE_MODELS_PATH:-cnv_model_files}:/models:ro
     networks: [cnv_model]
