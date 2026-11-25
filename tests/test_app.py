@@ -212,3 +212,30 @@ def test_marketplace_refuses_a_variant_that_does_not_fit(monkeypatch, tmp_path):
     listed = next(m for m in c.get("/admin/marketplace", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
     assert next(v for v in listed["variants"] if v["quant"] == "BF16")["fits"] is False
     assert c.post("/admin/marketplace/lfm3/add", json={"quant": "BF16"}, headers=ADMIN).status_code == 409
+
+
+def test_progress_endpoint_and_one_download_at_a_time():
+    from progress import progress
+
+    c = client(admin_password="pw")
+    assert c.get("/admin/progress", headers=ADMIN).json()["active"] is False
+    progress.start("hf.co/x:Q8_0", 1000)
+    try:
+        progress.set(250)
+        assert c.get("/admin/progress", headers=ADMIN).json() == {"active": True, "label": "hf.co/x:Q8_0", "done": 250, "total": 1000}
+        busy = c.post("/admin/models/lfm3/download", json={"quant": "Q8_0", "engine": "ollama"}, headers=ADMIN)
+        assert busy.status_code == 409 and "running" in busy.json()["detail"]
+    finally:
+        progress.finish()
+
+
+def test_delete_a_downloaded_build_but_not_the_one_in_use():
+    router = make_router()
+    c = client(router, admin_password="pw")
+    delete = lambda quant: c.post("/admin/models/lfm3/delete", json={"quant": quant, "engine": "ollama"}, headers=ADMIN)
+    assert delete("Q4_K_M").status_code == 409  # the running build of a running model
+    assert delete("Q1").status_code == 422 and c.post("/admin/models/zzz/delete", json={"quant": "Q4_K_M", "engine": "ollama"}, headers=ADMIN).status_code == 404
+    assert delete("Q8_0").json() == {"deleted": "hf.co/LiquidAI/LFM3-1.7B-GGUF:Q8_0"}
+    assert router.adapters["ollama"].deletes == [("lfm3", "Q8_0")]
+    c.post("/admin/models/lfm3/stop", headers=ADMIN)
+    assert delete("Q4_K_M").status_code == 200 and router.adapters["ollama"].deletes[-1] == ("lfm3", "Q4_K_M")

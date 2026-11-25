@@ -48,3 +48,27 @@ def test_ollama_downloaded_strips_latest(monkeypatch):
     adapter = OllamaAdapter("http://127.0.0.1:11434")
     monkeypatch.setattr("adapters.ollama._json_call", lambda *a, **k: {"models": [{"name": "hf.co/o/m:Q4_K_M"}, {"name": "x:latest"}]})
     assert adapter.downloaded() == {"hf.co/o/m:Q4_K_M", "x"} and adapter.same_machine
+
+
+def test_llamacpp_delete_removes_the_file_and_a_half_download(tmp_path):
+    adapter = adapter_with_file(tmp_path)
+    part = tmp_path / "org" / "bitnet" / "bitnet-i2_s.gguf.part"
+    part.write_bytes(b"x")
+    adapter.delete(ENTRY, "i2_s")
+    assert adapter.downloaded() == set() and not part.exists()
+    adapter.delete(ENTRY, "i2_s")  # already gone is fine
+
+
+def test_ollama_delete_sends_delete_and_ignores_not_found(monkeypatch):
+    import urllib.error
+
+    sent = []
+
+    def fake_urlopen(request, timeout=0):
+        sent.append((request.get_method(), request.full_url, request.data))
+        raise urllib.error.HTTPError(request.full_url, 404, "not found", {}, None)
+
+    monkeypatch.setattr("adapters.ollama.urllib.request.urlopen", fake_urlopen)
+    entry = ModelEntry("m", "M", "org/m", "Q4_K_M", frozenset(), (Build("Q4_K_M", 1, engines={"ollama": {}}),))
+    OllamaAdapter("http://127.0.0.1:11434").delete(entry, "Q4_K_M")
+    assert sent == [("DELETE", "http://127.0.0.1:11434/api/delete", b'{"model": "hf.co/org/m:Q4_K_M"}')]

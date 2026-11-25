@@ -41,7 +41,7 @@ class FakeAdapter:
     same_machine = False
 
     def __init__(self, name, **options):
-        self.name, self.options, self.loads, self.downloads, self.unloads = name, options, [], [], []
+        self.name, self.options, self.loads, self.downloads, self.unloads, self.deletes = name, options, [], [], [], []
 
     def load(self, entry, quant):
         self.loads.append((entry.name, quant))
@@ -49,6 +49,9 @@ class FakeAdapter:
 
     def unload(self, entry, quant):
         self.unloads.append((entry.name, quant))
+
+    def delete(self, entry, quant):
+        self.deletes.append((entry.name, quant))
 
     def downloaded(self):
         return set()
