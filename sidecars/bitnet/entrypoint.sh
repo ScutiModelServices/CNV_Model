@@ -6,4 +6,4 @@ until [ -f "$MODEL_FILE" ]; do
   echo "Waiting for $MODEL_FILE (press Download on the bitnet2b build in /admin/)"
   sleep 10
 done
-exec llama-server --host 0.0.0.0 --port 8080 -c 4096 -np 1 --special --jinja --chat-template-file /etc/bitnet.jinja -m "$MODEL_FILE"
+exec llama-server --host 0.0.0.0 --port 8080 -c 4096 -np 1 --special -m "$MODEL_FILE"

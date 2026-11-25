@@ -16,7 +16,7 @@
 | Engine | Options | Runs |
 |---|---|---|
 | `ollama` | none (`{}`) | The build through your Ollama server, as `hf.co/<repo>:<quant>`. |
-| `llamacpp` | `ref`: the GGUF file name in `repo`; `url`: the `llama-server` sidecar that holds it, for example `http://cnv_bitnet_server:8080`. One sidecar holds one GGUF. | The file through that sidecar. |
+| `llamacpp` | `ref`: the GGUF file name in `repo`; `url`: the `llama-server` sidecar that holds it, for example `http://cnv_bitnet_server:8080` (one sidecar holds one GGUF); optional `prompt`: `"bitnet"` for a server that cannot read a chat template (the bitnet.cpp build): the service then writes the prompt itself and calls `/completion`. Without `prompt` the service calls `/v1/chat/completions` and the server applies the model's own chat template. | The file through that sidecar. |
 
 ```json
 "builds": [{"quant": "Q4_K_M", "file_mb": 1048, "engines": {"ollama": {}, "llamacpp": {"ref": "m-Q4_K_M.gguf", "url": "http://cnv_m_server:8080"}}}]

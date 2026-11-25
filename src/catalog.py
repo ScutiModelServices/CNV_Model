@@ -11,7 +11,8 @@ from pathlib import Path
 
 CAPABILITIES = frozenset({"tools", "thinking", "schema", "project"})
 ENGINES = frozenset({"ollama", "llamacpp"})
-ENGINE_FIELDS = {"ollama": frozenset(), "llamacpp": frozenset({"ref", "url"})}  # what each engine needs from a build
+ENGINE_FIELDS = {"ollama": (frozenset(), frozenset()), "llamacpp": (frozenset({"ref", "url"}), frozenset({"prompt"}))}  # (required, optional) options of a build
+PROMPTS = frozenset({"bitnet"})  # llamacpp `prompt`: how the service writes the conversation for a server without a chat template
 
 
 class CatalogError(ValueError):
@@ -50,6 +51,9 @@ class ModelEntry:
         options = self.build(quant).engines[engine]
         return f"hf.co/{self.repo}:{quant}" if engine == "ollama" else f"{self.repo}/{options['ref']}"
 
+    def options(self, quant: str, engine: str) -> dict[str, str]:
+        return self.build(quant).engines[engine]
+
     def url(self, quant: str, engine: str) -> str:
         """The sidecar that holds this build (llama.cpp); empty for engines that are one shared server."""
         return self.build(quant).engines[engine].get("url", "")
@@ -62,8 +66,11 @@ def _build(path: Path, raw: dict) -> Build:
     for engine, options in engines.items():
         if engine not in ENGINES:
             raise CatalogError(f"{path.name}: unknown engine '{engine}'")
-        if not isinstance(options, dict) or set(options) != ENGINE_FIELDS[engine]:
-            raise CatalogError(f"{path.name}: engine {engine} takes exactly {sorted(ENGINE_FIELDS[engine]) or 'no options'}")
+        required, optional = ENGINE_FIELDS[engine]
+        if not isinstance(options, dict) or not required <= set(options) <= required | optional:
+            raise CatalogError(f"{path.name}: engine {engine} takes {sorted(required) or 'no options'} and optionally {sorted(optional)}")
+        if options.get("prompt", "bitnet") not in PROMPTS:
+            raise CatalogError(f"{path.name}: unknown prompt '{options['prompt']}'")
     return Build(raw["quant"], int(raw["file_mb"]), raw.get("note", ""), {k: dict(v) for k, v in engines.items()})
 
 
