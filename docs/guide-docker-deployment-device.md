@@ -1,14 +1,16 @@
 # CNV_Model: Docker on a deployment machine
 
-First start: open `/admin/` → **Updates** → **Download**; see [the web UI guide](guide-web-ui.md#updating-the-model-files). Startup and requests load downloaded files only; an empty installation keeps health/admin available and returns 503 for inference.
+First start: open `/admin/` → **Models and builds** → **Download** on a build; see [the web UI guide](guide-web-ui.md). Startup and requests load downloaded files only; an empty installation keeps health/admin available and returns 503 for inference.
 
-Run the LFM3 API with an external Ollama on a separate always-on machine (default `lex@scutiserver1.local`, folder
+Run the CNV_Model API, the bitnet.cpp sidecar and the load balancer on a separate always-on machine, with an external Ollama (default `lex@scutiserver1.local`, folder
 `/media/ZimaOS-HD/Apps/ModelServices/CNV_Model`). Callers reach it over the published port.
 
 ## Requirements on the machine
 
 - Docker + Compose v2, and ssh access (root over ssh is refused; use the normal user).
-- A reachable Ollama with the model pulled; API replicas share its model memory.
+- A reachable Ollama for the `lfm3`, `sparkx26` and `minicpm52b` models; API replicas share its model memory. Weights are downloaded from the admin page, not by hand.
+- The Docker network `citadel_core` (the compose file joins it so other stacks can reach the service). If the Citadel stack is not on this machine: `docker network create citadel_core`.
+- The first `docker compose up --build` compiles bitnet.cpp for the sidecar (a few minutes, needs internet).
 
 ## 1. Publish the code (from your PC)
 
@@ -30,12 +32,12 @@ Keep your own target in the git-ignored `tools\deploy.local.ini` (copy `tools\de
 
 ```bash
 mkdir -p /media/ZimaOS-HD/Apps/ModelServices
-git clone -b live <your-repo-url> /media/ZimaOS-HD/Apps/ModelServices/CNV_Model
+git clone -b live https://github.com/ScutiModelServices/CNV_Model.git /media/ZimaOS-HD/Apps/ModelServices/CNV_Model
 cd /media/ZimaOS-HD/Apps/ModelServices/CNV_Model
 ```
 Create `.env` (deploy option 2 copies yours, or `cp .env.example .env` and edit):
 - `SERVICE_ADMIN_PASSWORD`: a real password.
-- `SERVICE_REPLICAS=1` initially. Set `SERVICE_OLLAMA_URL` to the reachable Ollama and pull the configured model there first.
+- `SERVICE_REPLICAS=1` initially. The Ollama address defaults to `http://host.docker.internal:11434` (an Ollama on this machine); change it later on the admin Settings card.
 - `SERVICE_PORT=29204` (published on all interfaces; firewall it if the LAN should not reach it, or bind it to
   `127.0.0.1` in the `ports:` line of `cnv_model_lb` when only callers on the machine need it).
 
@@ -46,7 +48,7 @@ docker compose up -d --build
 docker compose ps
 curl http://127.0.0.1:29204/health
 ```
-Warm-up runs in the background. `/health` and the admin page answer even if Ollama is unavailable; chat returns 503 until the configured model can load.
+There is no warm-up: a model loads on its first request. `/health` and the admin page answer even if Ollama is unavailable; chat returns 503 until the model's weights are downloaded (admin page → **Models and builds** → **Download**) and the engine is reachable. The `cnv_bitnet_server` container waits for the BitNet file instead of restarting; after downloading it, `docker compose restart cnv_bitnet_server`.
 
 ## 4. Connect callers
 
@@ -57,7 +59,7 @@ Warm-up runs in the background. `/health` and the admin page answer even if Olla
    - Caller in a Docker stack on the same machine: `http://host.docker.internal:29204`.
 3. Try a call from the machine:
    ```bash
-   curl -X POST http://127.0.0.1:29204/v1/chat -H "Content-Type: application/json" -H "X-Internal-Token: lfm3_..." -d '{"messages":[{"role":"user","content":"Say hello in one sentence."}]}'
+   curl -X POST http://127.0.0.1:29204/v1/chat -H "Content-Type: application/json" -H "X-Internal-Token: cnv_..." -d '{"model":"lfm3","messages":[{"role":"user","content":"Say hello in one sentence."}]}'
    ```
 
 ## Scaling
