@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Fix: `inklingmini` answered with an empty string after one token. The Hub import carries generic stop tokens and no renderer. A catalog build can now name an Ollama `renderer` and `parser`; after Download pulls it, the service recreates the model from the same weights with them (no second download). All ten `inklingmini` builds use `inkling2`. Needs Ollama 0.40.18 or newer. A build pulled before this change needs one more Download, or the manual `ollama create`.
 - No default build: `default_quant` is gone from the catalog files. A model has no selected build until an admin selects one, and only a downloaded build can be selected (`PUT /admin/models/{name}/run` answers 409 otherwise; the Select button is disabled with the reason). Requests for a model with nothing selected get 503 `has no selected build`. Existing installs must press Select once per model.
 - New model `inklingmini` (Inkling 2 Mini, 26B MoE, from Thinking Machines) with ten Unsloth GGUF builds, `UD-IQ1_S` (7.4 GB) to `UD-Q8_K_XL` (21.8 GB), default `UD-Q4_K_M`, Ollama engine, capabilities `tools` and `thinking`. Text only (vision is not wired). The Ollama on the host must know the `inkling2` architecture. Sizes read from the Hub on 2026-11-25.
 - Fix: a stopped model refuses requests even when the answer is cached (the cache was checked before the stop).

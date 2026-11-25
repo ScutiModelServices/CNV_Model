@@ -112,3 +112,22 @@ def test_ollama_delete_sends_delete_and_ignores_not_found(monkeypatch):
     entry = ModelEntry("m", "M", "org/m", frozenset(), (Build("Q4_K_M", 1, engines={"ollama": {}}),))
     OllamaAdapter("http://127.0.0.1:11434").delete(entry, "Q4_K_M")
     assert sent == [("DELETE", "http://127.0.0.1:11434/api/delete", b'{"model": "hf.co/org/m:Q4_K_M"}')]
+
+
+def test_ollama_download_rebuilds_a_model_that_names_a_renderer(monkeypatch):
+    import contextlib
+
+    calls = []
+    monkeypatch.setattr("adapters.ollama._call", lambda *a, **k: contextlib.nullcontext())
+    monkeypatch.setattr("progress.ollama_pull_progress", lambda response, model: "success")
+    monkeypatch.setattr("adapters.ollama._json_call", lambda url, path, body, timeout, model: calls.append((path, body)) or {"status": "success"})
+    monkeypatch.setattr(OllamaAdapter, "_manifest", staticmethod(lambda name: (b"", {"layers": [
+        {"mediaType": "application/vnd.ollama.image.params", "digest": "sha256:p"},
+        {"mediaType": "application/vnd.ollama.image.model", "digest": "sha256:m"}]})))
+    plain = ModelEntry("m", "M", "org/m", frozenset(), (Build("Q4", 1, engines={"ollama": {}}),
+                                                         Build("Q2", 1, engines={"ollama": {"renderer": "r", "parser": "r"}})))
+    adapter = OllamaAdapter("http://127.0.0.1:11434")
+    adapter.download(plain, "Q4")
+    assert calls == []  # an ordinary build is only pulled
+    adapter.download(plain, "Q2")
+    assert calls == [("/api/create", {"model": "hf.co/org/m:Q2", "files": {"model.gguf": "sha256:m"}, "stream": False, "renderer": "r", "parser": "r"})]

@@ -12,7 +12,10 @@
       "file_mb": 7405,
       "note": "Smallest and roughest; quality drops a lot.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -20,7 +23,10 @@
       "file_mb": 7653,
       "note": "Very small; quality drops a lot.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -28,7 +34,10 @@
       "file_mb": 8093,
       "note": "Very small; clear quality loss.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -36,7 +45,10 @@
       "file_mb": 8715,
       "note": "Smallest build that still holds up; fits a 16 GB machine.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -44,7 +56,10 @@
       "file_mb": 11123,
       "note": "Small; moderate quality loss.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -52,7 +67,10 @@
       "file_mb": 13000,
       "note": "Medium; little quality loss.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -60,7 +78,10 @@
       "file_mb": 15005,
       "note": "Close to Q4 at a slightly smaller size.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -68,7 +89,10 @@
       "file_mb": 15841,
       "note": "The usual choice: Unsloth's recommended build, little quality loss.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -76,7 +100,10 @@
       "file_mb": 16813,
       "note": "A little larger and closer to the original.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     },
     {
@@ -84,7 +111,10 @@
       "file_mb": 21808,
       "note": "Almost the original: largest.",
       "engines": {
-        "ollama": {}
+        "ollama": {
+          "renderer": "inkling2",
+          "parser": "inkling2"
+        }
       }
     }
   ]

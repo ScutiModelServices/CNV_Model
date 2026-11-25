@@ -27,7 +27,8 @@ def test_loads_entries_and_sources(tmp_path):
     {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {}}]},
     {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"nope": {}}}]},
     {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"llamacpp": {"ref": "x.gguf"}}}]},
-    {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"ollama": {"url": "http://x:1"}}}]}])
+    {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"ollama": {"url": "http://x:1"}}}]},
+    {"builds": [{"quant": "Q4_K_M", "file_mb": 1, "engines": {"ollama": {"renderer": ""}}}]}])
 def test_rejects_bad_entry(tmp_path, over):
     write(tmp_path, "x", **over)
     with pytest.raises(CatalogError):
@@ -60,3 +61,8 @@ def test_shipped_catalog_loads():
     from pathlib import Path
     names = set(load_catalog(Path(__file__).parent.parent / "configs" / "models"))
     assert names == {"lfm3", "sparkx26", "minicpm52b", "bitnet2b", "inklingmini"}
+
+
+def test_ollama_build_may_name_a_renderer_and_parser(tmp_path):
+    write(tmp_path, "x", builds=[{"quant": "Q2", "file_mb": 1, "engines": {"ollama": {"renderer": "inkling2", "parser": "inkling2"}}}])
+    assert load_catalog(tmp_path)["x"].options("Q2", "ollama") == {"renderer": "inkling2", "parser": "inkling2"}

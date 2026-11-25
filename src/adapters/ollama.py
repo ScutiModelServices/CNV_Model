@@ -186,6 +186,20 @@ class OllamaAdapter:
             status = ollama_pull_progress(response, model)
         if status != "success":
             raise _unavailable(model)
+        if options := entry.options(quant, "ollama"):
+            self._rebuild(model, options)
+
+    def _rebuild(self, model: str, options: dict[str, str]) -> None:
+        """A Hub import gets generic stop tokens and no renderer, which can end an answer after one token (Inkling 2).
+        Recreate it from the same weights with the model's own `renderer` and `parser`, as its official Ollama tag does.
+        Building from the model file alone leaves the import's stop list behind. The file is already on disk: no second download."""
+        try:
+            layer = next((x["digest"] for x in self._manifest(model)[1]["layers"] if x.get("mediaType") == "application/vnd.ollama.image.model"), None)
+        except _READ_ERRORS:
+            raise _unavailable(model) from None
+        if not isinstance(layer, str):
+            raise _unavailable(model)
+        _json_call(self.url, "/api/create", {"model": model, "files": {"model.gguf": layer}, "stream": False, **options}, 300, model)
 
     def local_ref(self, entry: ModelEntry, quant: str) -> str | None:
         model = entry.source(quant, "ollama")
@@ -198,7 +212,12 @@ class OllamaAdapter:
 
     def remote_ref(self, entry: ModelEntry, quant: str) -> str:
         """Hash the registry manifest bytes, matching Ollama's installed digest."""
-        name, host = entry.source(quant, "ollama"), "registry.ollama.ai"
+        return hashlib.sha256(self._manifest(entry.source(quant, "ollama"))[0]).hexdigest()
+
+    @staticmethod
+    def _manifest(name: str) -> tuple[bytes, dict[str, Any]]:
+        """The registry manifest of a model name: its raw bytes and the parsed object."""
+        host = "registry.ollama.ai"
         if name.startswith(("hf.co/", "huggingface.co/")):
             host, name = name.split("/", 1)
         name, separator, tag = name.partition(":")
@@ -215,4 +234,4 @@ class OllamaAdapter:
         if (not isinstance(manifest, dict) or manifest.get("schemaVersion") != 2
                 or not isinstance(manifest.get("config"), dict) or not isinstance(manifest.get("layers"), list)):
             raise EngineError("Registry returned an invalid model manifest", 503)
-        return hashlib.sha256(raw).hexdigest()
+        return raw, manifest

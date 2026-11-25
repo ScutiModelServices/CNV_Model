@@ -14,7 +14,7 @@
 
 | Engine | Options | Runs |
 |---|---|---|
-| `ollama` | none (`{}`) | The build through your Ollama server, as `hf.co/<repo>:<quant>`. |
+| `ollama` | none (`{}`); optional `renderer` and `parser`: Ollama's built-in names for the model (`"inkling2"`). After the admin Download pulls the build, the service recreates it from the same weights with them (`/api/create`), because a plain Hub import gets generic stop tokens that end the answer after one token. Needs an Ollama that has that renderer. | The build through your Ollama server, as `hf.co/<repo>:<quant>`. |
 | `llamacpp` | `ref`: the GGUF file name in `repo`; `url`: the `llama-server` sidecar that holds it, for example `http://cnv_bitnet_server:8080` (one sidecar holds one GGUF); optional `prompt`: `"bitnet"` for a server that cannot read a chat template (the bitnet.cpp build): the service then writes the prompt itself and calls `/completion`. optional `cpu`: a CPU flag the build needs (`"avx2"` for bitnet.cpp's i2_s kernel); the build then counts as not fitting a CPU without it, so it is not downloaded, run, started or loaded. Without `prompt` the service calls `/v1/chat/completions` and the server applies the model's own chat template. | The file through that sidecar. |
 
 ```json
