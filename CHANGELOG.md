@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
+- Admin page: build rows (Models and Marketplace) show the reason in italics above the buttons, which sit bottom-right; rows are no longer clickable and the build details drawer is gone. Preload has no text beside it. Marketplace hides builds already added and models with nothing left to add.
 - Admin redesign: moved the sidebar toggle and page title into the header, added phone navigation, moved token forms and panel help into right-side drawers, and put live progress and fit reasons inside their build rows. Updates shows live catalog and download activity. Try it requires an explicit model ID.
 
 - Model states simplified: a model is **Off** or **On**, with one Turn on / Turn off button and a Preload button (Restart is gone from the page; the API keeps it, and gains `POST /admin/models/{name}/on`). The pill says whether the model is in memory, checked against Ollama (`/api/ps`) each time the page lists models, so it no longer shows "Loaded" after Ollama freed the model on its keep-alive. A model that is not really in memory no longer blocks Select, Download and Uninstall with "stop it first".

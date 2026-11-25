@@ -207,8 +207,6 @@ dialog input { width: 100%; }
 .m-banner { display: flex; gap: 10px; align-items: flex-start; margin: 0 16px 14px; padding: 10px 12px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--warn-text) 10%, var(--bg)); color: var(--warn-text); font-size: .9em; }
 .m-banner p { margin: 0; }
 .m-quant-text { font-weight: 650; }
-.m-row-link { cursor: pointer; }
-.m-row-link:hover { background: var(--code-bg); }
 .m-engine-col { color: var(--muted); }
 .m-icon { width: 34px; min-width: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .m-icon svg { width: 16px; height: 16px; }
@@ -602,7 +600,8 @@ button[aria-busy="true"]:has(.m-button-icon)::before { inset-inline-start: 10px;
 .m-builds.m-rows .m-actions-cell { white-space: normal; }
 .m-builds tr[data-unfit] { background: var(--surface); color: var(--muted); }
 .m-builds.m-rows .m-progress { display: block; width: 100%; margin-top: 7px; accent-color: var(--accent); }
-.m-row-reason { display: block; margin-top: 5px; color: var(--muted); font-size: .8em; text-align: end; }
+.m-row-reason { display: block; margin: 0 0 6px; color: var(--muted); font-size: .8em; font-style: italic; text-align: end; }
+.m-builds.m-rows .m-actions-cell { display: flex; flex-direction: column; justify-content: flex-end; align-self: stretch; }
 .m-small.m-row-action { display: inline-flex; align-items: center; gap: 4px; }
 .m-row-action svg { width: 14px; height: 14px; }
 #drawer { width: min(520px, 100%); background: var(--bg); }
@@ -1557,19 +1556,6 @@ function askDelete(trigger, model, row, option) {
   };
   dialog.showModal();
 }
-function buildDetails(trigger, model, row) {
-  const facts = [["Model", model.title], ["Memory estimate", "about " + row.estimated_mb + " MB"], ["Download size", row.disk_mb + " MB"]];
-  const engines = row.engines.map(option => mEl("div", {class: "m-line"}, mEl("span", {class: "mono m-engine"}, option.engine),
-    ...enginePills(model, row, option), option.reason ? mEl("p", {class: "m-reason"}, option.reason) : null));
-  openDrawer(trigger, row.title, mEl("p", {class: "m-note"}, row.note),
-    mEl("dl", {class: "m-facts"}, ...facts.map(([key, value]) => mEl("div", {}, mEl("dt", {}, key), mEl("dd", {class: "mono"}, value)))),
-    mEl("h3", {}, "Engines"), ...engines);
-}
-function enginePills(model, row, option) {
-  return [option.current ? mPill("Selected", "selected") : null,
-          option.downloaded ? mPill("Downloaded", "downloaded") : mPill("Not downloaded"),
-          option.runs_on ? mPill("Runs on " + option.runs_on.toUpperCase()) : null];
-}
 const ICONS = {
   select: "M5 13l4 4L19 7", download: "M12 4v11m-5-5 5 5 5-5M5 20h14",
   trash: "M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3",
@@ -1647,8 +1633,13 @@ function buildRows(model, row, progressKey) {
     const blocked = option.fits === false ? option.reason : "";
     const downloading = progressKey === key;
     const inUse = option.current && model.state !== "stopped" && option.fits !== false;
-    const quant = mEl("button", {type: "button", class: "m-quant mono", "aria-label": "Build details for " + where, onclick: event => buildDetails(event.currentTarget, model, row)}, row.title);
-    const actions = mEl("td", {class: "m-actions-cell", role: "cell"}, mEl("div", {class: "m-actions"},
+    const quant = mEl("span", {class: "m-quant-text mono"}, row.title);
+    const reasonText = loaded ? stopFirst : downloading ? "Downloading weights…" :
+      blocked || (inUse ? "Turn it off or select another build before uninstalling." :
+        option.downloaded ? "Downloaded" : activeDownload ? "Another download is running." : "Download this build before selecting it.");
+    const actions = mEl("td", {class: "m-actions-cell", role: "cell"},
+      mEl("small", {class: "m-row-reason"}, reasonText),
+      mEl("div", {class: "m-actions"},
       mBuildButton("select", option.current ? "Selected" : "Select", "Select " + where, {on: option.current, reason: loaded ? stopFirst : blocked || (!option.downloaded ? "Download it first: only a downloaded build can be selected." : ""), onclick: async () => {
         $("variants-error").textContent = ""; $("variants-note").textContent = "";
         try {
@@ -1673,14 +1664,10 @@ function buildRows(model, row, progressKey) {
       mBuildButton("trash", "Uninstall", "Uninstall " + where, {kind: "danger",
         reason: loaded ? stopFirst : !option.downloaded ? "Not downloaded." : inUse ? "This build is in use: turn the model off or select another build first." : "",
         onclick: event => askDelete(event.currentTarget, model, row, option)})),
-      mEl("small", {class: "m-row-reason"}, loaded ? stopFirst : downloading ? "Downloading weights…" :
-        blocked || (inUse ? "Turn it off or select another build before uninstalling." :
-          option.downloaded ? "Downloaded" : activeDownload ? "Another download is running." : "Download this build before selecting it.")),
       downloading ?
         [mEl("progress", {class: "m-progress", max: "100", "aria-label": "Download progress for " + where}),
           mEl("span", {class: "m-progress-text mono"})] : null);
-    return mEl("tr", {class: "m-row-link", role: "row", "data-selected": option.current ? "" : null, "data-unfit": blocked ? "" : null,
-      onclick: event => { if (!event.target.closest("button") && !getSelection()?.toString()) quant.click(); }},
+    return mEl("tr", {role: "row", "data-selected": option.current ? "" : null, "data-unfit": blocked ? "" : null},
       mEl("td", {class: "m-main", role: "cell"},
         mEl("div", {class: "m-name"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null),
         mEl("div", {class: "m-note"}, row.note),
@@ -1734,8 +1721,7 @@ function renderVariants(data) {
         mEl("div", {class: "m-seg", role: "group", "aria-label": model.title + " lifecycle"},
           panelHelp(model.title, stateHelp), disclosure,
           model.state === "stopped" ? modelAction(model, "on", "Turn on", false, "", "Turning on") : modelAction(model, "stop", "Turn off", false, "", "Turning off"),
-          modelAction(model, "start", "Preload", Boolean(preloadReason), preloadReason, "Loading")),
-        preloadReason ? mEl("small", {class: "m-row-reason"}, "Preload: " + preloadReason) : null));
+          modelAction(model, "start", "Preload", Boolean(preloadReason), preloadReason, "Loading"))));
     const table = mEl("table", {id: tableId, class: "m-builds m-rows", role: "table", hidden: !expanded, "aria-label": model.title + " builds"},
       mEl("tbody", {role: "rowgroup"}, ...model.builds.flatMap(row => buildRows(model, row, progressKey))));
     return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, table);
@@ -1748,19 +1734,18 @@ function renderVariants(data) {
 }
 function renderMarket(data) {
   $("market-hardware").replaceChildren(mEl("strong", {}, "Hardware"), mEl("span", {class: "m-stat"}, data.summary));
-  const notices = data.models.filter(model => !model.variants.length && model.note);
-  const groups = data.models.filter(model => model.variants.length || model.note);
-  $("market-empty").hidden = !data.models.every(model => !model.variants.length);
-  $("market-empty").textContent = notices.some(model => /offline/.test(model.note)) ?
-    "Repository listings are unavailable. See the reason beside each model." : "No additional builds found.";
+  // Builds already added live on the Models page; a model with nothing left to add is not listed (unless its listing failed)
+  const models = data.models.map(model => ({...model, variants: model.variants.filter(row => !row.added)}));
+  const notices = models.filter(model => !model.variants.length && /offline/.test(model.note || ""));
+  const groups = models.filter(model => model.variants.length || notices.includes(model));
+  $("market-empty").hidden = groups.length > 0;
+  $("market-empty").textContent = "No additional builds to add.";
   $("market-list").replaceChildren(...groups.map(model => {
     const head = mEl("div", {class: "m-head"}, mEl("div", {class: "m-title"}, mEl("h3", {}, model.title)),
       panelHelp(model.title + " variants", "Add a repository build to Models before downloading its weights."));
     if (!model.variants.length) return mEl("li", {class: "m-panel m-card"}, head, mEl("p", {class: "m-small-text m-pad"}, model.note));
-    return mEl("li", {class: "m-panel m-card"}, head, mEl("table", {class: "m-builds", "aria-label": model.title + " variants"},
-      mEl("thead", {}, mEl("tr", {}, mEl("th", {scope: "col"}, "Build"), mEl("th", {scope: "col", class: "num"}, "Memory est."), mEl("th", {scope: "col", class: "num"}, "Download size"),
-        mEl("th", {scope: "col"}, "Fit"), mEl("th", {scope: "col", class: "m-right"}, "Actions"))),
-      mEl("tbody", {}, ...model.variants.map(row => {
+    return mEl("li", {class: "m-panel m-card"}, head, mEl("table", {class: "m-builds m-rows", role: "table", "aria-label": model.title + " variants"},
+      mEl("tbody", {role: "rowgroup"}, ...model.variants.map(row => {
         const fit = row.fits === false ? row.reason : row.fits === null ? "Could not check if it fits." : row.runs_on ? "Runs on the " + row.runs_on.toUpperCase() : "";
         const add = mAction(row.added ? "Remove" : "Add", (row.added ? "Remove " : "Add ") + model.title + " " + row.quant,
           !row.added && row.fits === false ? row.reason : "", async () => {
@@ -1768,20 +1753,20 @@ function renderMarket(data) {
             try {
               await (row.added ? call("DELETE", "marketplace/" + model.name + "/" + encodeURIComponent(row.quant)) : call("POST", "marketplace/" + model.name + "/add", {quant: row.quant}));
               $("market-note").textContent = row.added ? "Removed " + row.quant + " from " + model.title + "." : "Added " + row.quant + " to " + model.title + ". Download and select it on the Models page.";
-              if ($("drawer-body").contains(add)) $("drawer").hidePopover();
               await Promise.all([refreshMarket(), refreshVariants()]);
             } catch (error) { report(error, "market-error"); }
           }, row.added ? "danger" : "");
-        const details = mEl("button", {type: "button", class: "m-quant mono", "aria-haspopup": "dialog",
-          onclick: event => openDrawer(event.currentTarget, row.quant,
-            mEl("p", {}, model.title), mEl("p", {class: "description"}, fit),
-            mEl("p", {class: "mono"}, "Memory " + row.estimated_mb + " MB · Download " + row.disk_mb + " MB"),
-            !row.added && row.fits === false ? null : mEl("div", {}, add))}, row.quant);
-        return mEl("tr", {}, mEl("th", {scope: "row", class: "mono m-quant-text"}, details),
-          mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Memory est."), row.estimated_mb + " MB"),
-          mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Download size"), row.disk_mb + " MB"),
-          mEl("td", {class: row.fits === false ? "m-reason" : "m-note"}, fit),
-          mEl("td", {class: "m-actions-cell"}, row.added ? "Added" : ""));
+        const blocked = !row.added && row.fits === false;
+        return mEl("tr", {role: "row", "data-selected": row.added ? "" : null, "data-unfit": blocked ? "" : null},
+          mEl("td", {class: "m-main", role: "cell"},
+            mEl("div", {class: "m-name"}, mEl("span", {class: "m-quant-text mono"}, row.quant), row.added ? mEl("span", {class: "m-pill selected"}, "Added") : null),
+            mEl("div", {class: "m-chips"},
+              mEl("span", {class: "m-chip"}, "Memory ", mEl("b", {}, row.estimated_mb + " MB")),
+              mEl("span", {class: "m-chip"}, "Download ", mEl("b", {}, row.disk_mb + " MB")),
+              mEl("span", {class: "m-chip"}, row.fits === false ? "Does not fit" : row.runs_on ? "Fits on " + row.runs_on.toUpperCase() : "Fit unknown"))),
+          mEl("td", {class: "m-actions-cell", role: "cell"},
+            mEl("small", {class: "m-row-reason"}, fit || (row.added ? "Added to Models." : "")),
+            mEl("div", {class: "m-actions"}, add)));
       }))));
   }));
   filterMarketplace();
