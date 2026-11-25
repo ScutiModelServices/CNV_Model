@@ -38,7 +38,7 @@ One JSON file per model in `configs/models/`; see [configs/README.md](configs/RE
 
 ## Engines
 
-A model lists its builds (original or quantized), and each build lists the engines that can run it. Nothing is fixed to an engine: the user picks which engine runs a build, on the admin Models card (**Run on <engine>**, saved for every replica) or per request with `engine` (it must be one the build's current catalog entry lists, else 422).
+A model lists its builds (original or quantized), and each build lists the engines that can run it. Nothing is fixed to an engine: the user picks which engine runs a build, on the admin Models card (**Select**, saved for every replica) or per request with `engine` (it must be one the build's current catalog entry lists, else 422).
 
 | Engine | Where it runs |
 |---|---|

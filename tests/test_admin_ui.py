@@ -249,7 +249,7 @@ def test_models_card_lists_builds_under_each_model(page):
     sync_api.expect(card).to_be_visible()
     sync_api.expect(card).to_contain_text("Liquid LFM3 1.7B")
     sync_api.expect(card).to_contain_text("BitNet b1.58 2B4T")
-    lfm3 = page.locator("#variant-list .model-group", has_text="Liquid LFM3 1.7B")
+    lfm3 = page.locator("#variant-list .model-card", has_text="Liquid LFM3 1.7B")
     sync_api.expect(lfm3.get_by_role("button", name="Download Liquid LFM3 1.7B Q8_0 for ollama")).to_be_visible()
 
 
@@ -257,7 +257,7 @@ def test_models_card_has_lifecycle_buttons_and_marketplace_page_lists_variants(p
     page.fill("#admin", PASSWORD)
     page.click("#signin-button")
     page.click('#admin-nav a[href="#variants"]')
-    lfm3 = page.locator("#variant-list .model-group", has_text="Liquid LFM3 1.7B")
+    lfm3 = page.locator("#variant-list .model-card", has_text="Liquid LFM3 1.7B")
     sync_api.expect(lfm3.get_by_role("button", name="Stop Liquid LFM3 1.7B")).to_be_enabled()
     sync_api.expect(lfm3.get_by_role("button", name="Start Liquid LFM3 1.7B")).to_be_enabled()
     page.click('#admin-nav a[href="#marketplace"]')
