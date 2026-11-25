@@ -280,7 +280,7 @@ def test_a_loaded_model_cannot_change_build_download_or_uninstall(tmp_path):
     for call in (lambda: c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN), lambda: c.post("/admin/models/lfm3/download", json=choice, headers=ADMIN),
                  lambda: c.post("/admin/models/lfm3/delete", json=choice, headers=ADMIN)):
         refused = call()
-        assert refused.status_code == 409 and "stop it first" in refused.json()["detail"]
+        assert refused.status_code == 409 and "turn it off first" in refused.json()["detail"]
     assert c.put("/admin/models/sparkx26/run", json=choice, headers=ADMIN).status_code == 200  # other models are free
     c.post("/admin/models/lfm3/stop", headers=ADMIN)
     assert c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN).status_code == 200
@@ -313,3 +313,17 @@ def test_nothing_is_selected_by_default_and_only_a_downloaded_build_can_be_selec
     router.adapters["ollama"].downloaded = lambda: {router.catalog["lfm3"].source("Q8_0", "ollama")}
     assert c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN).status_code == 200
     assert c.post("/v1/chat", json=BODY, headers=token).status_code == 200
+
+
+def test_on_allows_requests_without_loading_and_a_freed_model_is_not_loaded(tmp_path):
+    router = make_router()
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(router, "pw", tokens=store, fetch_sizes=no_hub))
+    token = {"X-Internal-Token": store.create("t")["token"]}
+    state = lambda: next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")["state"]
+    c.post("/admin/models/lfm3/stop", headers=ADMIN)
+    assert c.post("/admin/models/lfm3/on", headers=ADMIN).json() == {"state": "ready"} and not router.adapters["ollama"].loads  # on does not load
+    assert c.post("/v1/chat", json=BODY, headers=token).status_code == 200 and state() == "running"
+    router.adapters["ollama"].resident = lambda entry, quant: False  # Ollama freed it after its keep-alive
+    assert state() == "ready"
+    assert c.put("/admin/models/lfm3/run", json={"quant": "Q8_0", "engine": "ollama"}, headers=ADMIN).status_code == 200  # not blocked by a stale handle

@@ -1,3 +1,4 @@
+import threading
 import asyncio
 import pytest
 from catalog import Build, ModelEntry
@@ -120,3 +121,33 @@ def test_guard_blocks_loading_a_build_that_does_not_fit():
     with pytest.raises(EngineError) as blocked:
         chat(router, "a")
     assert blocked.value.status == 503 and "Needs about" in str(blocked.value) and adapter.loads == []
+
+
+def test_a_slow_load_does_not_hold_the_lock():
+    router, adapter = make()
+    done = threading.Event()
+
+    def slow_load(entry, quant):
+        router.forget()  # the admin sync does this while a load runs; with the lock held it would deadlock
+        done.set()
+        return Loaded(f"{entry.name}:{quant}")
+
+    adapter.load = slow_load
+    worker = threading.Thread(target=lambda: chat(router, "a"), daemon=True)
+    worker.start()
+    worker.join(5)
+    assert done.is_set() and not worker.is_alive()
+    assert not router._loaded  # forgotten while it loaded, so the stale handle is not kept; the request still got its answer
+
+
+def test_prune_forgets_models_the_engine_no_longer_holds():
+    router, adapter = make()
+    chat(router, "a")
+    chat(router, "b")
+    adapter.resident = lambda entry, quant: entry.name == "b"
+    generation = router.generation
+    router.prune()
+    assert sorted(router._loaded) == [("b", "A", "ollama")] and router.generation == generation
+    adapter.resident = lambda entry, quant: None  # cannot tell: keep it
+    router.prune()
+    assert sorted(router._loaded) == [("b", "A", "ollama")]

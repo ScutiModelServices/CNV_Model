@@ -463,6 +463,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def model_rows() -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
         """Every model with its builds under it, and under each build the engines that can run it: size, fit, downloaded.
         Read when asked, never cached."""
+        await asyncio.to_thread(router.prune)
         machine = await asyncio.to_thread(hardware.probe) if any(a.same_machine for a in router.adapters.values()) else None
         on_disk: dict[str, set[str]] = {}
         for engine, adapter in router.adapters.items():
@@ -499,15 +500,16 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             raise HTTPException(422, f"This build runs on: {', '.join(engines)}.")
         return entry
 
-    def loaded_guard(name: str) -> None:
+    async def loaded_guard(name: str) -> None:
+        await asyncio.to_thread(router.prune)  # a handle Ollama already freed is not "loaded"
         if router.state_of(name) == "running":
-            raise HTTPException(409, "This model is loaded: stop it first.")
+            raise HTTPException(409, "This model is in memory: turn it off first.")
 
     @app.put("/admin/models/{name}/run", dependencies=[Depends(admin)])
     async def choose_run(name: str, body: Choice) -> dict[str, Any]:
         """Run this model as this build on this engine from now on; every replica applies it within a second."""
         pick(name, body)
-        loaded_guard(name)
+        await loaded_guard(name)
         model = next(m for m in (await model_rows())[1] if m["name"] == name)
         option = next(o for r in model["builds"] if r["id"] == body.quant for o in r["engines"] if o["engine"] == body.engine)
         if option["fits"] is False:
@@ -524,7 +526,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def download_build(name: str, body: Choice) -> dict[str, Any]:
         """The only place weights are fetched. Every replica then drops its loaded copy."""
         entry = pick(name, body)
-        loaded_guard(name)
+        await loaded_guard(name)
         if progress.snapshot()["active"]:
             raise HTTPException(409, "Another download is running; wait for it to finish.")
         if cpu := builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags()):
@@ -548,7 +550,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def delete_build(name: str, body: Choice) -> dict[str, Any]:
         """Delete a downloaded build from its engine's storage. The build a running model uses is kept until the model is stopped."""
         entry = pick(name, body)
-        loaded_guard(name)
+        await loaded_guard(name)
         if progress.snapshot()["active"]:
             raise HTTPException(409, "A download is running; wait for it to finish.")
         runs_here = not builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags())  # a build this CPU cannot run is not in use
@@ -565,14 +567,18 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         settings.save(tokens.settings_path, stopped=sorted(router.stopped))
 
     @app.post("/admin/models/{name}/{action}", dependencies=[Depends(admin)])
-    async def lifecycle(name: str, action: Literal["start", "stop", "restart"]) -> dict[str, Any]:
-        """Stop frees the model and refuses its requests; start loads it and allows them again; restart is both."""
+    async def lifecycle(name: str, action: Literal["on", "start", "stop", "restart"]) -> dict[str, Any]:
+        """`on` allows requests again (the first one loads the model); `start` also loads it now (the page's Preload);
+        `stop` frees the model and refuses its requests (the page's Turn off); `restart` is stop then start."""
         try:
             entry = router.entry(name)
         except UnknownModel:
             raise HTTPException(404, "No such model.") from None
         if action in ("stop", "restart"):
             await router.stop(name)
+            persist_stopped()
+        if action == "on":
+            router.stopped.discard(name)
             persist_stopped()
         if action in ("start", "restart"):
             if router.quant_of(entry) is None:
@@ -583,7 +589,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
                 await router.start(name)
             except EngineError as error:
                 persist_stopped()
-                raise HTTPException(error.status or 502, f"Started, but it could not be loaded now: {error}") from None
+                raise HTTPException(error.status or 502, f"Could not load it now: {error}") from None
             persist_stopped()
         return {"state": router.state_of(name)}
 
