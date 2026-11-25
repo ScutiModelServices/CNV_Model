@@ -16,7 +16,7 @@ def test_listing_marks_fit_current_downloaded_and_sorts():
     rows = listing(ENTRY, HW, CURRENT, {"ollama": {"hf.co/org/m:Q4_K_M"}}, {})
     assert [r["id"] for r in rows] == ["Q4_K_M", "Q8_0", "F16"]
     assert rows[0]["current"] and option(rows, "Q4_K_M", "ollama") == {
-        "engine": "ollama", "current": True, "fits": True, "reason": "", "runs_on": "cpu", "downloaded": True}
+        "engine": "ollama", "current": True, "fits": True, "reason": "", "runs_on": "cpu", "source": "hf.co/org/m:Q4_K_M", "downloaded": True}
     assert option(rows, "Q8_0", "ollama")["fits"] is True and not option(rows, "Q8_0", "ollama")["downloaded"]
     assert option(rows, "F16", "ollama")["fits"] is False and "Needs about" in option(rows, "F16", "ollama")["reason"]
 

@@ -270,6 +270,20 @@ def test_a_stopped_model_does_not_answer_from_the_cache(tmp_path):
     assert c.post("/v1/chat", json=BODY, headers=token).status_code == 503
 
 
+def test_a_loaded_model_cannot_change_build_download_or_uninstall(tmp_path):
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(make_router(), "pw", tokens=store, fetch_sizes=no_hub))
+    assert c.post("/v1/chat", json=BODY, headers={"X-Internal-Token": store.create("t")["token"]}).status_code == 200  # lfm3 is loaded
+    choice = {"quant": "Q8_0", "engine": "ollama"}
+    for call in (lambda: c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN), lambda: c.post("/admin/models/lfm3/download", json=choice, headers=ADMIN),
+                 lambda: c.post("/admin/models/lfm3/delete", json=choice, headers=ADMIN)):
+        refused = call()
+        assert refused.status_code == 409 and "stop it first" in refused.json()["detail"]
+    assert c.put("/admin/models/sparkx26/run", json=choice, headers=ADMIN).status_code == 200  # other models are free
+    c.post("/admin/models/lfm3/stop", headers=ADMIN)
+    assert c.put("/admin/models/lfm3/run", json=choice, headers=ADMIN).status_code == 200
+
+
 def test_a_build_the_cpu_cannot_run_can_be_deleted_without_stopping(monkeypatch):
     import builds
 

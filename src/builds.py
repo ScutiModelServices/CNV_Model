@@ -72,7 +72,8 @@ def listing(entry: ModelEntry, hardware: dict[str, dict[str, Any] | None], curre
             if cpu:
                 fits, reason, where = False, cpu, None
             options.append({"engine": engine, "current": in_use, "fits": fits, "reason": reason if cpu else "" if in_use or fits else reason,
-                            "runs_on": where, "downloaded": entry.source(build.quant, engine) in downloaded.get(engine, set())})
+                            "runs_on": where, "source": entry.source(build.quant, engine),
+                            "downloaded": entry.source(build.quant, engine) in downloaded.get(engine, set())})
         rows.append({"id": build.quant, "title": build.quant, "quant": build.quant, "note": build.note,
                      "detail": f"about {need} MB · {mb} MB download · {build.note}",
                      "disk_mb": mb, "estimated_mb": need, "current": build.quant == current[0], "engines": options})

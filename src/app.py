@@ -492,10 +492,15 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
             raise HTTPException(422, f"This build runs on: {', '.join(engines)}.")
         return entry
 
+    def loaded_guard(name: str) -> None:
+        if router.state_of(name) == "running":
+            raise HTTPException(409, "This model is loaded: stop it first.")
+
     @app.put("/admin/models/{name}/run", dependencies=[Depends(admin)])
     async def choose_run(name: str, body: Choice) -> dict[str, Any]:
         """Run this model as this build on this engine from now on; every replica applies it within a second."""
         pick(name, body)
+        loaded_guard(name)
         model = next(m for m in (await model_rows())[1] if m["name"] == name)
         option = next(o for r in model["builds"] if r["id"] == body.quant for o in r["engines"] if o["engine"] == body.engine)
         if option["fits"] is False:
@@ -510,6 +515,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def download_build(name: str, body: Choice) -> dict[str, Any]:
         """The only place weights are fetched. Every replica then drops its loaded copy."""
         entry = pick(name, body)
+        loaded_guard(name)
         if progress.snapshot()["active"]:
             raise HTTPException(409, "Another download is running; wait for it to finish.")
         if cpu := builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags()):
@@ -533,6 +539,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
     async def delete_build(name: str, body: Choice) -> dict[str, Any]:
         """Delete a downloaded build from its engine's storage. The build a running model uses is kept until the model is stopped."""
         entry = pick(name, body)
+        loaded_guard(name)
         if progress.snapshot()["active"]:
             raise HTTPException(409, "A download is running; wait for it to finish.")
         runs_here = not builds.missing_cpu(entry, body.quant, body.engine, builds.cpu_flags())  # a build this CPU cannot run is not in use
