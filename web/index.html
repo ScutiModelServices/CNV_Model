@@ -138,7 +138,6 @@ dialog input { width: 100%; }
 :root {
   --line: light-dark(#888890, #72727d);
   --ok-text: light-dark(#116647, #7adab2);
-  --run-text: light-dark(#1a5ca5, #8cbdff);
   --warn-text: light-dark(#815000, #f0b429);
   --danger-text: light-dark(#a52e26, #ff9c88);
   --shadow-pop: 0 8px 28px #0003;
@@ -165,9 +164,9 @@ dialog input { width: 100%; }
 .m-pill.selected { color: var(--accent); border-color: var(--accent); }
 .m-pill.downloaded { color: var(--ok-text); border-color: color-mix(in srgb, var(--ok-text) 75%, var(--bg)); }
 .m-pill.state { font-weight: 650; }
-.m-pill.state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
-.m-pill.loaded { color: var(--run-text); border-color: color-mix(in srgb, var(--run-text) 75%, var(--bg)); }
-.m-pill.unloaded { color: var(--warn-text); border-color: color-mix(in srgb, var(--warn-text) 75%, var(--bg)); }
+.m-pill.state::before { content: ""; width: 6px; height: 6px; border-radius: var(--radius-full); background: currentColor; flex: none; }
+.m-pill.loaded { color: var(--ok-text); }
+.m-pill.unloaded { color: var(--accent); }
 .m-help { min-height: 22px; width: 22px; padding: 0; border-radius: 50%; color: var(--muted); border: 1px solid var(--line); background: var(--bg); font: 600 12px var(--sans); }
 .m-small { min-height: 30px; padding: 3px 10px; font-size: .85em; border-radius: var(--radius-md); border: 1px solid var(--line); background: var(--bg); font-weight: 500; }
 .m-small:hover { background: var(--code-bg); border-color: var(--muted); }
@@ -557,6 +556,107 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
   button { min-height: 44px; }
 }
 </style>
+<style>
+/* CNV admin shell and record controls. */
+#dashboard { --sidebar-width: 210px; grid-template-rows: 52px minmax(0, 1fr); }
+#dashboard.is-collapsed { --sidebar-width: 60px; }
+.topbar { justify-content: flex-start; gap: 10px; padding-inline: 12px; }
+.topbar-actions { margin-inline-start: auto; gap: 4px; }
+.topbar h1 { min-width: 0; margin: 0; padding-inline-start: 10px; border-inline-start: 1px solid var(--muted); font-size: .95rem; }
+.topbar .brand strong { overflow-wrap: anywhere; }
+.topbar #sidebar-toggle { width: 44px; height: 44px; margin: 0; padding: 0; justify-content: center; }
+.topbar :is(#profile, #header-help) { width: 44px; height: 44px; justify-content: center; padding: 0; }
+.topbar :is(#sidebar-toggle, #profile, #header-help), .panel-help, #drawer-expand, #drawer-close {
+  border: 0; border-radius: var(--radius-md); background: transparent;
+}
+.admin-sidebar { background: var(--bg); }
+.admin-workspace { background: var(--surface); }
+#page-content { padding-block: 22px 36px; }
+.page-view .card, #overview-details-section, #overview-usage, .m-card { background: var(--bg); }
+.page-view > :is(#variants-card, #market-card) { background: transparent; }
+.page-view[data-page] > :is(#variants-card, #market-card) > .section-heading {
+  position: static; width: auto; height: auto; overflow: visible; clip-path: none; white-space: normal;
+}
+.section-heading, .m-head, #overview-usage header { flex-wrap: wrap; }
+.panel-help { display: inline-grid; place-items: center; width: 36px; min-height: 36px; padding: 0; color: var(--muted); }
+.panel-help svg { width: 18px; height: 18px; }
+.panel-help:hover, #drawer-expand:hover, #drawer-close:hover { background: var(--code-bg); }
+.section-heading > .panel-help, .overview-panel-head > .panel-help { margin-inline-start: auto; }
+.overview-panel-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#playground > .playground-heading { grid-column: 1 / -1; grid-row: 1; }
+.m-card .m-head { gap: 8px 14px; }
+.m-lifecycle .m-seg { display: flex; gap: 6px; flex-wrap: wrap; border: 0; overflow: visible; }
+.m-lifecycle .m-seg button, .m-actions .m-small:not(.m-icon) { padding-inline: 10px; border: 1px solid var(--border); border-radius: var(--radius-full); }
+.m-lifecycle .m-seg .primary { background: var(--accent); border-color: var(--accent); }
+.m-lifecycle .m-seg .primary[aria-busy="true"] { color: var(--accent-contrast); }
+.m-lifecycle .m-seg .primary[aria-disabled="true"]:not([aria-busy="true"]) { background: var(--surface); }
+.m-small .m-button-icon { width: 15px; height: 15px; }
+.m-small:has(.m-button-icon) { display: inline-flex; align-items: center; gap: 5px; }
+button[aria-busy="true"] { position: relative; }
+button[aria-busy="true"]:not(:has(.m-button-icon)) { -webkit-text-fill-color: transparent; }
+button[aria-busy="true"] > svg { visibility: hidden; }
+button[aria-busy="true"]::before { position: absolute; inset: calc(50% - 7px) auto auto calc(50% - 7px); margin: 0; }
+button[aria-busy="true"]:has(.m-button-icon)::before { inset-inline-start: 10px; }
+.m-builds.m-rows tr { align-items: start; grid-template-columns: minmax(0, 1fr) minmax(210px, auto); }
+.m-builds.m-rows .m-actions { flex-wrap: wrap; }
+.m-builds.m-rows .m-actions-cell { white-space: normal; }
+.m-builds tr[data-unfit] { background: var(--surface); color: var(--muted); }
+.m-builds.m-rows .m-progress { display: block; width: 100%; margin-top: 7px; accent-color: var(--accent); }
+.m-row-reason { display: block; margin-top: 5px; color: var(--muted); font-size: .8em; text-align: end; }
+.m-small.m-row-action { display: inline-flex; align-items: center; gap: 4px; }
+.m-row-action svg { width: 14px; height: 14px; }
+#drawer { width: min(520px, 100%); background: var(--bg); }
+#drawer.expanded { width: min(90vw, 100%); }
+#drawer::backdrop { background: var(--backdrop); pointer-events: none; }
+.drawer-head h2 { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.drawer-head :is(#drawer-close, #drawer-expand) { display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; }
+.drawer-head svg { width: 18px; height: 18px; }
+.drawer-foot { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+#drawer-body { overscroll-behavior: contain; }
+#drawer-body .create-form { display: grid; grid-template-columns: minmax(0, 1fr); }
+#drawer-body :is(input, textarea, select) { width: 100%; }
+#drawer-body .dialog-actions { margin-bottom: 8px; }
+#token-loading, #market-loading, #market-empty { margin-block: 12px; }
+#token-search, #market-search, #settings-search { min-width: 0; width: min(200px, 100%); margin: 0; }
+#settings-draft-actions { display: inline-flex; align-items: center; gap: 6px; }
+#settings-draft-actions[data-clean] { visibility: hidden; }
+#settings-draft-actions #save-settings { margin: 0; }
+#theme-select { color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px; font: inherit; }
+.scope-toggle { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 0; border: 0; min-height: 44px; background: transparent; }
+.scope-toggle::before { content: "Off"; width: 50px; padding: 2px 4px 2px 18px; border-radius: var(--radius-full); background: var(--code-bg); color: var(--text); font-size: .75em; }
+.scope-toggle[aria-checked="true"]::before { content: "On"; padding-inline: 4px 18px; background: var(--accent); color: var(--accent-contrast); }
+.scope-toggle::after { content: ""; position: absolute; width: 12px; height: 12px; margin-left: 4px; border-radius: var(--radius-full); background: var(--muted); transition: transform .15s ease; }
+.scope-toggle[aria-checked="true"]::after { transform: translateX(30px); background: var(--accent-contrast); }
+#playground input[type="checkbox"] { appearance: none; position: relative; width: 52px; height: 26px; padding: 0; border-radius: var(--radius-full); background: var(--code-bg); cursor: pointer; }
+#playground input[type="checkbox"]::before { content: ""; position: absolute; inset: 3px auto auto 3px; width: 18px; height: 18px; border-radius: var(--radius-full); background: var(--muted); transition: transform .15s ease; }
+#playground input[type="checkbox"]:checked { background: var(--accent); }
+#playground input[type="checkbox"]:checked::before { background: var(--accent-contrast); transform: translateX(26px); }
+@container (max-width: 560px) {
+  .m-builds.m-rows tr { grid-template-columns: minmax(0, 1fr); }
+  .m-row-reason { text-align: start; }
+}
+@media (max-width: 767px) {
+  #dashboard, #dashboard.is-collapsed { grid-template-columns: minmax(0, 1fr); grid-template-rows: 52px auto minmax(0, 1fr); }
+  #dashboard .admin-workspace { grid-row: 3; }
+  #dashboard.is-collapsed .admin-sidebar { display: none; }
+  #dashboard .admin-sidebar { max-height: 42dvh; border-right: 0; border-bottom: 1px solid var(--border); padding: 6px 8px; }
+  .admin-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .topbar { gap: 4px; padding-inline: 6px; }
+  .topbar .brand { gap: 4px; }
+  .topbar .brand-icon, .topbar .address, .topbar .divider, .topbar .badge, .profile-label { display: none; }
+  .topbar .brand strong { font-size: .82rem; overflow-wrap: anywhere; }
+  .topbar h1 { font-size: .83rem; padding-inline-start: 6px; }
+  #page-content { padding: 14px 12px 28px; }
+  #drawer, #drawer.expanded { width: 100%; }
+  .panel-help, .m-quant, .m-small { min-height: 44px; }
+  .panel-help { width: 44px; }
+  #drawer-body :is(input, textarea, select) { font-size: 16px; min-height: 44px; }
+}
+@media (pointer: coarse) {
+  .panel-help, .m-quant, .m-small { min-height: 44px; }
+  .panel-help { width: 44px; }
+}
+</style>
 </head>
 <body>
 <main class="page">
@@ -577,28 +677,27 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
   </section>
   <section id="dashboard" hidden aria-labelledby="page-title">
     <header class="topbar">
+      <button id="sidebar-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="true" aria-label="Sidebar" aria-keyshortcuts="Control+B"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM9 4v16"/></svg></button>
       <div class="brand"><img class="brand-icon" src="icon.png" alt=""><span class="divider" aria-hidden="true"></span><strong id="service-name"></strong><span id="address" class="address mono"></span></div>
+      <h1 id="page-title" tabindex="-1">Overview</h1>
       <div class="topbar-actions">
         <span id="health" class="badge" data-state="Starting" role="status"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="health-icon" d="M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/></svg><span id="health-text">Starting</span></span>
+        <button id="header-help" type="button" aria-label="Page help" title="Page help" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18m-2.5-12a2.6 2.6 0 1 1 3.7 2.4c-.8.4-1.2 1-1.2 1.9M12 17h.01"/></svg></button>
         <button id="profile" type="button" popovertarget="profile-menu" aria-label="Account menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3"/><path d="M5 20v-2a7 7 0 0 1 14 0v2"/></svg><span class="profile-label">Admin</span></button>
       </div>
       <div id="profile-menu" popover>
-        <strong>Theme</strong>
-        <div id="theme" role="group" aria-label="Theme"><button type="button" data-theme-choice="light">Light</button><button type="button" data-theme-choice="dark">Dark</button><button type="button" data-theme-choice="system">System</button></div>
+        <label for="theme-select">Theme</label>
+        <select id="theme-select"><option value="dark">Dark</option><option value="light">Light</option><option value="system">System</option></select>
         <button id="signout" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H4v14h5m5-12 5 5-5 5m-6-5h11"/></svg>Sign out</button>
       </div>
     </header>
     <aside id="admin-sidebar" class="admin-sidebar" aria-label="Service navigation">
       <nav id="admin-nav" class="admin-nav" aria-label="Admin pages"></nav>
-      <button id="sidebar-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="true" aria-label="Collapse sidebar" aria-keyshortcuts="Control+B"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM9 4v16m6-12-3 4 3 4"/></svg><span class="toggle-label">Collapse</span></button>
     </aside>
     <div class="admin-workspace">
-    <header class="header">
-      <h1 id="page-title" tabindex="-1">Overview</h1>
-    </header>
     <div id="page-content" aria-labelledby="page-title">
     <section id="overview-summary">
-      <div id="no-weights" class="notice" role="status" hidden><div><h2>No model weights downloaded yet</h2><p class="description">Nothing is loaded, so inference returns 503. An admin has to download the weights first.</p></div><div class="notice-actions"><a class="page-link" href="#updates">Go to downloads</a><button id="no-weights-close" type="button" aria-label="Close this warning">&times;</button></div></div>
+      <div id="no-weights" class="notice" role="status" hidden><div><h2>No model weights downloaded yet</h2><p class="description">Nothing is loaded, so inference returns 503. An admin has to download the weights first.</p></div><div class="notice-actions"><a class="page-link" href="#variants">Go to downloads</a><button id="no-weights-close" type="button" aria-label="Close this warning">&times;</button></div></div>
       <div id="readiness" class="readiness" data-state="Starting"><div><h2 id="readiness-title">Checking service readiness</h2><p id="readiness-description" class="description">Waiting for the service health response.</p></div><a class="page-link" href="#updates" id="readiness-action">Model updates</a></div>
     </section>
     <div id="overview-metrics" class="tiles" aria-label="Service status">
@@ -621,20 +720,24 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
     <section id="tokens-card" class="card" aria-labelledby="tokens-title">
       <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 10 7-7m-3 3 3 3m-6 0 3 3M15 14a6 6 0 1 1-5-5 6 6 0 0 1 5 5Z"/><path d="M7 16h.01"/></svg><h2 id="tokens-title">Project tokens</h2></div>
       <p class="description">Give each project its own access. Revoke a token to stop its requests.</p>
-      <form id="create" class="create-form">
+      <div id="token-create-slot" hidden><form id="create" class="create-form">
         <div class="field"><label for="name">Project name</label><input id="name" placeholder="e.g. Garrison" required maxlength="64" autocomplete="off"></div>
         <div class="field"><label for="projects">Allowed projects</label><input id="projects" placeholder="All (or: app-a, app-b)" autocomplete="off"></div>
         <div class="field"><label for="rate">Requests per minute</label><input id="rate" type="number" min="1" max="100000" step="1" placeholder="Unlimited"></div>
         <div class="field"><label for="expires">Expires in (days)</label><input id="expires" type="number" min="1" max="3650" step="1" placeholder="Never"></div>
         <button id="create-button" class="primary">Create token</button>
       </form>
-      <p id="token-error" class="error" role="alert"></p>
+      <p id="token-form-error" class="error" role="alert"></p>
       <div id="fresh" class="fresh" hidden>
         <div class="fresh-top"><strong>Your new token</strong><button id="copy" type="button">Copy</button></div>
         <code id="fresh-token"></code>
         <p class="description">Shown once. Copy it before you leave.</p>
         <p id="copy-status" class="muted" role="status"></p>
       </div>
+      </div>
+      <p id="token-loading" class="description" role="status" hidden>Loading project tokens…</p>
+      <p id="token-error" class="error" role="alert"></p>
+      <button id="retry-tokens" type="button" hidden>Retry loading tokens</button>
       <table id="token-table" hidden>
         <caption class="sr-only">Active project tokens</caption>
         <thead><tr><th scope="col">Project</th><th scope="col">Created</th><th scope="col">Last used</th><th scope="col">Requests</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
@@ -695,6 +798,9 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
       <p class="description">More quantized variants of the supported models, listed from each model's Hugging Face repository. Only variants this machine can run can be added. An added variant appears under its model on the Models page, where you download and select it.</p>
       <p id="market-hardware" class="m-panel m-hardware"></p>
       <p id="market-note" role="status"></p>
+      <p id="market-loading" class="description" role="status" hidden>Loading repository builds…</p>
+      <p id="market-empty" class="description" role="status" hidden></p>
+      <button id="retry-market" type="button" hidden>Retry loading Marketplace</button>
       <p id="market-error" role="alert"></p>
       <ul id="market-list" class="m-list"></ul>
     </section>
@@ -707,6 +813,13 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
       <div id="download-progress" class="download-progress" hidden><progress id="download-bar" max="100" aria-labelledby="download-text"></progress><p id="download-text" class="description" role="status"></p></div>
       <p id="update-note" class="description" role="status"></p>
       <p id="updates-error" class="error" role="alert"></p>
+    </section>
+    <section id="build-activity-card" class="card" aria-labelledby="build-activity-title">
+      <div class="section-heading"><h2 id="build-activity-title">Build activity</h2></div>
+      <p class="description">View downloaded builds and active downloads. Manage individual weights in Models.</p>
+      <p id="build-activity-note" class="description" role="status"></p>
+      <p id="build-activity-error" class="error" role="alert"></p>
+      <div class="update-actions"><button id="refresh-build-activity" type="button">Refresh activity</button><a class="page-link" href="#variants">Manage builds</a></div>
     </section>
     <section id="settings-card" class="card" aria-labelledby="settings-title" hidden>
       <div class="section-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10m4 0h2M4 17h2m4 0h10M14 4v6M6 14v6"/></svg><h2 id="settings-title">Settings</h2></div>
@@ -724,15 +837,14 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
   </section>
 </div>
 </main>
-<dialog id="edit-dialog" aria-labelledby="edit-title">
-  <h2 id="edit-title">Edit token</h2>
+<div id="edit-panel" hidden>
   <form id="edit-form">
     <div class="field"><label for="edit-projects">Allowed projects</label><input id="edit-projects" placeholder="All (or: app-a, app-b)" autocomplete="off"></div>
     <div class="field"><label for="edit-rate">Requests per minute</label><input id="edit-rate" type="number" min="1" max="100000" step="1" placeholder="Unlimited"></div>
     <p id="edit-error" class="error" role="alert"></p>
     <div class="dialog-actions"><button id="cancel-edit" type="button">Cancel</button><button id="save-edit" class="primary">Save</button></div>
   </form>
-</dialog>
+</div>
 <dialog id="revoke-dialog" aria-labelledby="revoke-title" aria-describedby="revoke-message">
   <h2 id="revoke-title">Revoke token?</h2>
   <p id="revoke-message"></p>
@@ -740,7 +852,7 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
   <div class="dialog-actions"><button id="cancel-revoke" type="button" autofocus>Cancel</button><button id="confirm-revoke" class="danger" type="button">Revoke token</button></div>
 </dialog>
 <aside id="drawer" class="m-layer" popover role="dialog" aria-labelledby="drawer-title">
-  <header class="drawer-head"><h2 id="drawer-title"></h2><button type="button" id="drawer-close" aria-label="Close drawer">×</button></header>
+  <header class="drawer-head"><h2 id="drawer-title" tabindex="-1"></h2><button type="button" id="drawer-expand" aria-label="Expand drawer" aria-pressed="false"></button><button type="button" id="drawer-close" aria-label="Close drawer" title="Close drawer">×</button></header>
   <div id="drawer-body"></div>
   <footer class="drawer-foot"><button type="button" id="drawer-done">Close</button></footer>
 </aside>
@@ -751,8 +863,8 @@ h2 { font-size: 17px; font-weight: 650; letter-spacing: -.015em; }
 </dialog>
 <script src="playground.js"></script>
 <script>
-// Per-service configuration. The rest of this page is shared verbatim.
-const CONFIG = {tags: ["cpu", "streaming", "variants"], connect: {host: "cnv_model_lb", port: 29204}, title: "CNV_Model", address: location.origin, threadLabel: "CPU threads", threadField: "num_thread", adminEnv: "SERVICE_ADMIN_PASSWORD", replicasEnv: "SERVICE_REPLICAS", extraTile: {label: "Ollama parallel requests", field: "ollama_parallel"}, updates: false, playground: {"operations":[{"label":"Chat","route":"/v1/chat","method":"POST","fields":[{"key":"model","label":"Model","type":"text","required":true,"maxLength":64,"default":"lfm3"},{"key":"engine","label":"Engine (empty = the one you chose)","type":"text","maxLength":32},{"key":"messages.0.role","label":"Role","type":"select","options":["user","system","assistant"],"default":"user"},{"key":"messages.0.content","label":"Message","type":"textarea","required":true,"maxLength":100000,"default":"Hello!"},{"key":"temperature","label":"Temperature","type":"number","min":0,"max":2,"step":0.1,"default":0},{"key":"max_tokens","label":"Maximum tokens","type":"number","min":1,"max":4096,"step":1,"default":512},{"key":"stream","label":"Stream response","type":"checkbox","default":true},{"key":"tools","label":"Tools (optional)","type":"json"}],"response":"stream","encoding":"json"}]}};
+// CNV catalog and playground configuration.
+const CONFIG = {tags: ["cpu", "streaming", "variants"], connect: {host: "cnv_model_lb", port: 29204}, title: "CNV_Model", address: location.origin, threadLabel: "CPU threads", threadField: "num_thread", adminEnv: "SERVICE_ADMIN_PASSWORD", replicasEnv: "SERVICE_REPLICAS", extraTile: {label: "Ollama parallel requests", field: "ollama_parallel"}, updates: false, playground: {"operations":[{"label":"Chat","route":"/v1/chat","method":"POST","fields":[{"key":"model","label":"Model","type":"text","required":true,"maxLength":64,"help":"Enter a catalog model ID."},{"key":"engine","label":"Engine (empty = the one you chose)","type":"text","maxLength":32},{"key":"messages.0.role","label":"Role","type":"select","options":["user","system","assistant"],"default":"user"},{"key":"messages.0.content","label":"Message","type":"textarea","required":true,"maxLength":100000,"default":"Hello!"},{"key":"temperature","label":"Temperature","type":"number","min":0,"max":2,"step":0.1,"default":0},{"key":"max_tokens","label":"Maximum tokens","type":"number","min":1,"max":4096,"step":1,"default":512},{"key":"stream","label":"Stream response","type":"checkbox","default":true},{"key":"tools","label":"Tools (optional)","type":"json"}],"response":"stream","encoding":"json"}]}};
 
 const $ = id => document.getElementById(id);
 const storageKey = CONFIG.title + ":admin";
@@ -797,7 +909,7 @@ try { theme = localStorage.getItem("admin-theme") || "system"; } catch {}
 if (!["system", "light", "dark"].includes(theme)) theme = "system";
 function applyTheme() {
   document.documentElement.style.colorScheme = theme === "system" ? "light dark" : theme;
-  document.querySelectorAll("[data-theme-choice]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme)));
+  $("theme-select").value = theme;
 }
 applyTheme();
 document.title = CONFIG.title + " admin";
@@ -856,10 +968,8 @@ if (CONFIG.extraTile) {
   $("extra-label").textContent = CONFIG.extraTile.label;
 }
 $("updates-card").hidden = !CONFIG.updates;
-$("theme").addEventListener("click", event => {
-  const choice = event.target.closest("[data-theme-choice]")?.dataset.themeChoice;
-  if (!choice) return;
-  theme = choice;
+$("theme-select").addEventListener("change", event => {
+  theme = event.target.value;
   try { localStorage.setItem("admin-theme", theme); } catch {}
   applyTheme();
 });
@@ -880,6 +990,13 @@ function signOut(focus = true) {
   session.abort();
   session = new AbortController();
   clearInterval(poll);
+  clearInterval(modelProgressTimer);
+  modelProgressTimer = 0;
+  modelOperations.clear();
+  expandedModels.clear();
+  lastVariants = lastProgress = null;
+  downloadingNow = activeDownload = false;
+  downloadKey = "";
   clearTimeout(savedTimer);
   polling = false;
   admin = "";
@@ -897,7 +1014,7 @@ function signOut(focus = true) {
   $("projects").value = "";
   $("rate").value = "";
   $("expires").value = "";
-  $("edit-dialog").close();
+  if ($("drawer").matches(":popover-open")) $("drawer").hidePopover();
   pendingEdit = null;
   $("project-models").replaceChildren();
   $("settings-list").replaceChildren();
@@ -910,7 +1027,7 @@ function signOut(focus = true) {
   $("saved").textContent = "";
   $("update-list").replaceChildren();
   $("update-note").textContent = "";
-  for (const id of ["login-error", "page-error", "token-error", "threads-error", "revoke-error", "updates-error", "settings-error"]) $(id).textContent = "";
+  for (const id of ["login-error", "page-error", "token-error", "token-form-error", "threads-error", "revoke-error", "updates-error", "settings-error"]) $(id).textContent = "";
   initializedThreads = false;
   if (focus) $("admin").focus();
 }
@@ -940,10 +1057,9 @@ async function call(method, path, body, timeout = 10000) {
   const data = await response.json().catch(() => ({}));
   if (activeSession.signal.aborted) throw new DOMException("Signed out", "AbortError");
   if (!response.ok) {
-    const message = [409, 422, 502, 503].includes(response.status) && typeof data.detail === "string" ? data.detail
-      : response.status === 401
-      ? "Wrong admin password. Check the password and that " + CONFIG.adminEnv + " is set on the server."
-      : "Request failed (" + response.status + "). Check the service and try again.";
+    const detail = typeof data.detail === "string" ? data.detail :
+      Array.isArray(data.detail) ? data.detail.map(issue => issue.msg).filter(Boolean).join("; ") : "";
+    const message = detail || "HTTP " + response.status + (response.statusText ? " " + response.statusText : "");
     const error = new Error(message);
     error.status = response.status;
     throw error;
@@ -1063,7 +1179,9 @@ function renderTokens(rows) {
       $("edit-projects").value = (pendingEdit.projects || []).join(", ");
       $("edit-rate").value = pendingEdit.rate || "";
       $("edit-error").textContent = "";
-      $("edit-dialog").showModal();
+      syncScope("edit-projects");
+      openDrawer(edit, "Edit token · " + pendingEdit.name, $("edit-panel"));
+      $("edit-projects").disabled ? $("switch-edit-projects").focus() : $("edit-projects").focus();
     };
     const actions = document.createElement("div");
     actions.className = "row-actions";
@@ -1074,11 +1192,24 @@ function renderTokens(rows) {
   });
   for (const tr of existing.values()) if (!rows.some(row => row.id === tr.dataset.tokenId)) tr.remove();
   for (const tr of nodes) if (!tr.isConnected) $("rows").append(tr);
+  filterTokens();
 }
-async function refreshTokens() {
+async function refreshTokens(showLoading = false) {
   const version = ++tokenVersion;
-  const data = await call("GET", "tokens");
-  if (version === tokenVersion) renderTokens(data.tokens);
+  if (showLoading) $("token-loading").hidden = false;
+  try {
+    const data = await call("GET", "tokens");
+    if (version !== tokenVersion) return;
+    renderTokens(data.tokens);
+    $("retry-tokens").hidden = true;
+    $("token-error").textContent = "";
+  } catch (error) {
+    if (!showLoading || error.status === 401 || error.name === "AbortError") throw error;
+    $("retry-tokens").hidden = false;
+    report(error, "token-error");
+  } finally {
+    if (showLoading) $("token-loading").hidden = true;
+  }
 }
 async function refreshWorkers() {
   const data = await call("GET", "workers");
@@ -1199,14 +1330,13 @@ class AdminNavigation {
     this.toggle = $("sidebar-toggle");
     this.storageKey = config.title + ":sidebar-collapsed";
     this.pages = [
-      {id: "overview", label: "Overview", description: "Health, readiness and access at a glance.", nodes: ["overview-summary", "overview-metrics", "overview-details-section", "overview-usage"], icon: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"},
-      {id: "playground", label: "Playground", description: "Test model requests with a public service token.", nodes: ["playground"], icon: "m9 3 0 6-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3M8 3h8M7 15h10"},
-      {id: "tokens", label: "Access tokens", description: "Manage scoped access, rate limits and expiration.", nodes: ["tokens-card"], icon: "M15 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM11 11v10m0-4h4m-4 4h3"},
-      {id: "runtime", label: "Runtime & settings", description: "Resource controls and model configuration.", nodes: ["threads-card", "settings-card", "workers"], icon: "M4 7h16M4 17h16M8 4v6m8 4v6"},
+      {id: "overview", label: "Overview", description: "Check readiness, service addresses and token usage.", nodes: ["overview-summary", "overview-metrics", "overview-details-section", "overview-usage", "connect-card"], icon: "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"},
       ...(hasTag("variants") ? [{id: "variants", label: "Models", description: "Pick a build of each model and download its weights.", nodes: ["variants-card"], icon: "M4 7h16M4 12h16M4 17h10"}] : []),
       ...(hasTag("variants") ? [{id: "marketplace", label: "Marketplace", description: "Add more quantized variants of the supported models.", nodes: ["market-card"], icon: "M4 7h16l-1 12H5L4 7ZM8 7a4 4 0 0 1 8 0"}] : []),
-      ...(config.updates ? [{id: "updates", label: "Model updates", description: "Check availability and explicitly download model weights.", nodes: ["updates-card"], icon: "M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"}] : []),
-      {id: "connections", label: "Connections", description: "Use the address that matches where your caller runs.", nodes: ["connect-card"], icon: "m9 15 6-6m-8 4-2 2a4 4 0 0 0 6 6l2-2m-2-14 2-2a4 4 0 0 1 6 6l-2 2"},
+      {id: "tokens", label: "Tokens", description: "Manage scoped access, rate limits and expiration.", nodes: ["tokens-card"], icon: "M15 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM11 11v10m0-4h4m-4 4h3"},
+      {id: "runtime", label: "Settings", description: "Resource controls and model configuration.", nodes: ["threads-card", "settings-card", "workers"], icon: "M4 7h16M4 17h16M8 4v6m8 4v6"},
+      {id: "updates", label: "Updates", description: "Review installed builds and downloads.", nodes: [config.updates ? "updates-card" : "build-activity-card"], icon: "M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"},
+      {id: "playground", label: "Try it", description: "Test model requests with a public service token.", nodes: ["playground"], icon: "m9 3 0 6-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V3M8 3h8M7 15h10"},
       ...(hasTag("project-models") ? [{id: "models", label: "Project models", description: "Models available to scoped projects.", nodes: ["project-models-card"], icon: "m12 3-9 5 9 5 9-5-9-5ZM3 13l9 5 9-5M3 18l9 5 9-5"}] : []),
       ...(hasTag("voice-cloning") ? [{id: "voices", label: "Cloned voices", description: "Reference clips and transcripts shared across replicas.", nodes: ["voices-card"], icon: "M9 5a3 3 0 0 1 6 0v7a3 3 0 0 1-6 0V5ZM5 11a7 7 0 0 0 14 0M12 18v4m-4 0h8"}] : [])
     ];
@@ -1216,10 +1346,7 @@ class AdminNavigation {
       page.view.id = "page-" + page.id;
       page.view.dataset.page = page.id;
       page.view.setAttribute("aria-labelledby", "page-title");
-      const description = document.createElement("p");
-      description.className = "description";
-      description.textContent = page.description;
-      page.view.append(description, ...page.nodes.map(id => $(id)));
+      page.view.append(...page.nodes.map(id => $(id)));
       this.content.append(page.view);
       page.link = document.createElement("a");
       page.link.href = "#" + page.id;
@@ -1244,13 +1371,29 @@ class AdminNavigation {
       note.textContent = "The host runtime manages CPU threads for this service. No live CPU thread control is available here.";
       this.pages.find(page => page.id === "runtime").view.insertBefore(note, $("threads-card"));
     }
-    let collapsed = matchMedia("(max-width: 1000px)").matches;  // narrow screens start as the icon rail
+    this.phone = matchMedia("(max-width: 767px)");
+    let collapsed = matchMedia("(max-width: 1000px)").matches;
     try { const saved = localStorage.getItem(this.storageKey); if (saved !== null) collapsed = saved === "true"; } catch {}
-    this.setCollapsed(collapsed);
+    this.desktopCollapsed = collapsed;
+    this.setCollapsed(this.phone.matches || collapsed);
+    this.phone.addEventListener("change", () => this.setCollapsed(this.phone.matches || this.desktopCollapsed));
     this.toggle.addEventListener("click", () => {
       const next = !this.dashboard.classList.contains("is-collapsed");
       this.setCollapsed(next);
+      if (this.phone.matches) return;
+      this.desktopCollapsed = next;
       try { localStorage.setItem(this.storageKey, String(next)); } catch {}
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && this.phone.matches && !this.dashboard.classList.contains("is-collapsed")
+          && !document.querySelector(":popover-open, dialog[open]")) {
+        this.setCollapsed(true);
+        this.toggle.focus();
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b" && !this.dashboard.hidden) {
+        event.preventDefault();
+        this.toggle.click();
+      }
     });
     window.addEventListener("hashchange", () => this.show(true));
     this.show(false);
@@ -1258,12 +1401,11 @@ class AdminNavigation {
   setCollapsed(collapsed) {
     this.dashboard.classList.toggle("is-collapsed", collapsed);
     this.toggle.setAttribute("aria-expanded", String(!collapsed));
-    this.toggle.setAttribute("aria-label", collapsed ? "Expand sidebar" : "Collapse sidebar");
-    this.toggle.querySelector("span").textContent = collapsed ? "Expand" : "Collapse";
-    this.toggle.querySelector("path").setAttribute("d", collapsed ? "M4 4h16v16H4zM9 4v16m3-12 3 4-3 4" : "M4 4h16v16H4zM9 4v16m6-12-3 4 3 4");
+    this.toggle.title = collapsed ? "Expand sidebar" : "Collapse sidebar";
   }
   show(focus) {
-    const page = this.pages.find(item => item.id === location.hash.slice(1)) || this.pages[0];
+    const hash = location.hash.slice(1);
+    const page = this.pages.find(item => item.id === (hash === "connections" ? "overview" : hash)) || this.pages[0];
     if (location.hash !== "#" + page.id) history.replaceState(null, "", "#" + page.id);
     for (const item of this.pages) {
       item.view.hidden = item !== page;
@@ -1271,9 +1413,14 @@ class AdminNavigation {
       else item.link.removeAttribute("aria-current");
     }
     $("page-title").textContent = page.label;
+    $("header-help").onclick = event => openDrawer(event.currentTarget, page.label, mEl("p", {}, page.description));
     document.title = page.label + " · " + this.config.title;
     this.content.scrollTop = 0;
-    if (focus && !this.dashboard.hidden) $("page-title").focus({preventScroll: true});
+    if (focus && !this.dashboard.hidden) {
+      if ($("drawer").matches(":popover-open")) $("drawer").hidePopover();
+      if (this.phone.matches) this.setCollapsed(true);
+      $("page-title").focus({preventScroll: true});
+    }
   }
 }
 const navigation = new AdminNavigation(CONFIG);
@@ -1307,22 +1454,29 @@ function renderVoices(data) {
 }
 let modelProgressTimer = 0, downloadingNow = false, activeDownload = false, lastVariants = null;
 function renderModelProgress(progress) {
-  const active = Boolean(progress && progress.active);
-  if (active) lastProgress = progress;
+  const active = downloadingNow || Boolean(progress?.active);
+  if (progress?.active) lastProgress = progress;
   if (active !== activeDownload) {
     activeDownload = active;
     if (lastVariants) renderVariants(lastVariants);  // Download buttons wait while one download runs; the running row shows its bar
   }
   paintRowProgress();
+  if (lastVariants) renderBuildActivity();
 }
 function watchModelProgress() {
   if (modelProgressTimer) return;
+  const activeSession = session;
+  let pending = false;
   modelProgressTimer = setInterval(async () => {
+    if (pending) return;
+    pending = true;
     try {
       const progress = await call("GET", "progress");
+      if (activeSession !== session) return;
       renderModelProgress(progress);
       if (!progress.active && !downloadingNow) { clearInterval(modelProgressTimer); modelProgressTimer = 0; await refreshVariants(); }
     } catch {}
+    finally { pending = false; }
   }, 1000);
 }
 const MODEL_STATES = {
@@ -1348,33 +1502,45 @@ function mAction(label, aria, reason, onclick, kind = "") {
   return mEl("button", {type: "button", class: "m-small" + (kind ? " " + kind : ""), "aria-label": aria, "aria-disabled": reason ? "true" : null,
                         title: reason || null, onclick: reason ? null : onclick}, label);
 }
-function mHelp(id, title, copy) {
-  return [mEl("button", {type: "button", class: "m-help", "aria-label": title, popovertarget: id}, "?"),
-          mEl("div", {id, class: "m-layer m-help-text", popover: true}, copy)];
+function panelHelp(title, copy) {
+  return mEl("button", {type: "button", class: "panel-help", "aria-label": "About " + title,
+    title: "About " + title, "aria-haspopup": "dialog",
+    onclick: event => openDrawer(event.currentTarget, title, mEl("p", {}, copy))}, mIcon("help"));
 }
-function placeLayer(layer, trigger) {
-  const anchor = trigger.getBoundingClientRect(), bounds = layer.getBoundingClientRect();
-  const below = anchor.bottom + 6;
-  layer.style.left = Math.min(innerWidth - bounds.width - 8, Math.max(8, anchor.left)) + "px";
-  layer.style.top = (below + bounds.height <= innerHeight - 8 ? below : Math.max(8, anchor.top - bounds.height - 6)) + "px";
-}
-document.addEventListener("beforetoggle", event => {
-  const layer = event.target;
-  if (event.newState !== "open" || !layer.matches(".m-help-text")) return;
-  const trigger = document.querySelector('[popovertarget="' + layer.id + '"]');
-  requestAnimationFrame(() => { if (layer.matches(":popover-open") && trigger) placeLayer(layer, trigger); });
-}, true);
-$("page-content").addEventListener("scroll", () => document.querySelectorAll(".m-help-text:popover-open").forEach(layer => layer.hidePopover()), {passive: true});
 let drawerTrigger = null;
+let drawerContent = null;
+function restoreDrawerContent() {
+  if (!drawerContent) return;
+  const {node, home} = drawerContent;
+  home.append(node);
+  node.hidden = true;
+  drawerContent = null;
+}
 function openDrawer(trigger, title, ...body) {
+  restoreDrawerContent();
   drawerTrigger = trigger;
+  if (body.length === 1 && ["edit-panel", "token-create-slot"].includes(body[0].id)) {
+    drawerContent = {node: body[0], home: body[0].parentElement};
+    body[0].hidden = false;
+  }
   $("drawer-title").textContent = title;
   $("drawer-body").replaceChildren(...body);
-  $("drawer").showPopover();
-  $("drawer-close").focus();
+  $("drawer-body").scrollTop = 0;
+  if (!$("drawer").matches(":popover-open")) $("drawer").showPopover();
+  $("drawer-title").focus();
 }
 $("drawer-close").onclick = $("drawer-done").onclick = () => $("drawer").hidePopover();
-$("drawer").addEventListener("toggle", event => { if (event.newState === "closed" && drawerTrigger) { drawerTrigger.focus({preventScroll: true}); drawerTrigger = null; } });
+$("drawer").addEventListener("beforetoggle", event => {
+  if (event.newState !== "closed") return;
+  restoreDrawerContent();
+  $("drawer-body").replaceChildren();
+  $("drawer").classList.remove("expanded");
+  $("drawer-expand").setAttribute("aria-pressed", "false");
+  $("drawer-expand").replaceChildren(mIcon("expand"));
+  const trigger = drawerTrigger;
+  drawerTrigger = null;
+  if (trigger?.isConnected) trigger.focus({preventScroll: true});
+});
 function askDelete(trigger, model, row, option) {
   $("confirm-copy").textContent = "Uninstall " + model.title + " " + row.title + " from " + option.engine + "? The downloaded weights are deleted; you can download them again later.";
   const dialog = $("confirm-delete");
@@ -1404,7 +1570,15 @@ function enginePills(model, row, option) {
           option.downloaded ? mPill("Downloaded", "downloaded") : mPill("Not downloaded"),
           option.runs_on ? mPill("Runs on " + option.runs_on.toUpperCase()) : null];
 }
-const ICONS = {select: "M5 13l4 4L19 7", download: "M12 4v11m-5-5 5 5 5-5M5 20h14", trash: "M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3"};
+const ICONS = {
+  select: "M5 13l4 4L19 7", download: "M12 4v11m-5-5 5 5 5-5M5 20h14",
+  trash: "M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3",
+  help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18m-2.5-12a2.6 2.6 0 1 1 3.7 2.4c-.8.4-1.2 1-1.2 1.9m0 3.5h.01",
+  expand: "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5",
+  collapse: "M8 3v5H3m13-5v5h5M3 16h5v5m13-5h-5v5",
+  power: "M12 2v8m5-5a8 8 0 1 1-10 0", preload: "m13 2-9 12h7l-1 8 10-12h-7z",
+  chevron: "m6 9 6 6 6-6", close: "m6 6 12 12M18 6 6 18"
+};
 function mIcon(name) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
@@ -1414,45 +1588,68 @@ function mIcon(name) {
   svg.append(path);
   return svg;
 }
-/** Icon button. `on` = this state is already true (green, cannot be pressed); `reason` = why it is blocked. */
-function mIconButton(name, aria, tip, {on = false, reason = "", kind = "", onclick}) {
+function mBuildButton(name, label, aria, {on = false, reason = "", kind = "", onclick}) {
   const blocked = on || reason;
-  return mEl("button", {type: "button", class: "m-small m-icon" + (on ? " on" : "") + (kind ? " " + kind : ""), "aria-label": aria,
-                        "aria-disabled": blocked ? "true" : null, title: reason || tip, onclick: blocked ? null : onclick}, mIcon(name));
+  return mEl("button", {type: "button", class: "m-small m-row-action " + kind, "aria-label": aria,
+                        "aria-disabled": blocked ? "true" : null, title: reason || (on ? label : aria),
+                        onclick: blocked ? null : onclick}, mIcon(name), label);
 }
+const modelOperations = new Map();
 function modelAction(model, action, label, off, reason, busy) {
-  return mAction(label, label + " " + model.title, off ? reason : "", async event => {
+  const running = modelOperations.get(model.name);
+  const control = mAction(label, label + " " + model.title, off ? reason : "", async event => {
     const button = event.currentTarget;
-    const group = button.closest(".m-lifecycle").querySelectorAll("button.m-small");
+    if (button.getAttribute("aria-disabled") === "true" || modelOperations.has(model.name)) return;
+    const activeSession = session;
+    modelOperations.set(model.name, action);
     $("variants-error").textContent = ""; $("variants-note").textContent = busy + " " + model.title + "...";
-    group.forEach(item => item.setAttribute("aria-disabled", "true"));
-    button.setAttribute("aria-busy", "true");  // the spinner in the shared button style
+    renderVariants(lastVariants);
     try {
       const done = await call("POST", "models/" + model.name + "/" + action, undefined, 300000);
       $("variants-note").textContent = model.title + " is " + MODEL_STATES[done.state][1].toLowerCase() + ".";
       await refreshVariants();
-    } catch (error) { $("variants-note").textContent = ""; report(error, "variants-error"); await refreshVariants().catch(() => {}); }
-  });
+    } catch (error) {
+      if (activeSession !== session) return;
+      $("variants-note").textContent = "";
+      report(error, "variants-error");
+      if (activeSession === session) await refreshVariants().catch(() => {});
+    } finally {
+      if (activeSession === session) {
+        modelOperations.delete(model.name);
+        if (lastVariants) renderVariants(lastVariants);
+      }
+    }
+  }, action === "on" ? "primary" : "");
+  if (running) {
+    control.setAttribute("aria-disabled", "true");
+    if (running === action) control.setAttribute("aria-busy", "true");
+  }
+  const icon = mIcon(action === "start" ? "preload" : "power");
+  icon.classList.add("m-button-icon");
+  control.prepend(icon);
+  return control;
 }
 let downloadKey = "", lastProgress = null;
 function paintRowProgress() {
-  const bar = document.querySelector(".m-progress-tr");
+  const bar = document.querySelector("#variant-list progress");
   if (!bar) return;
-  const known = lastProgress && lastProgress.total > 0, percent = known ? Math.min(100, Math.floor(lastProgress.done * 100 / lastProgress.total)) : 0;
-  bar.querySelector(".m-progress-fill").style.setProperty("--p", percent + "%");
-  bar.querySelector(".m-progress-text").textContent = (known ? percent + "% · " + megabytes(lastProgress.done) + " of " + megabytes(lastProgress.total) : "Starting…");
+  const known = lastProgress && lastProgress.total > 0;
+  const percent = known ? Math.min(100, Math.floor(lastProgress.done * 100 / lastProgress.total)) : 0;
+  if (known) bar.value = percent;
+  else bar.removeAttribute("value");
+  bar.nextElementSibling.textContent = known ? percent + "% · " + megabytes(lastProgress.done) + " of " + megabytes(lastProgress.total) : "Starting…";
 }
-function buildRows(model, row) {
+function buildRows(model, row, progressKey) {
   return row.engines.map(option => {
     const key = model.name + "/" + row.id + "/" + option.engine;
     const where = model.title + " " + row.title + " on " + option.engine;
-    const loaded = model.state === "running", stopFirst = "Turn the model off first: it is in memory.";
+    const loaded = model.state === "running", stopFirst = "Turn it off first";
     const blocked = option.fits === false ? option.reason : "";
-    const downloading = activeDownload && lastProgress && (lastProgress.label === option.source || downloadKey === key);
+    const downloading = progressKey === key;
     const inUse = option.current && model.state !== "stopped" && option.fits !== false;
     const quant = mEl("button", {type: "button", class: "m-quant mono", "aria-label": "Build details for " + where, onclick: event => buildDetails(event.currentTarget, model, row)}, row.title);
-    const actions = mEl("td", {class: "m-actions-cell"}, mEl("div", {class: "m-actions"},
-      mIconButton("select", "Select " + where, option.current ? "Selected" : "Select this build", {on: option.current, reason: blocked || (!option.downloaded ? "Download it first: only a downloaded build can be selected." : loaded ? stopFirst : ""), onclick: async () => {
+    const actions = mEl("td", {class: "m-actions-cell", role: "cell"}, mEl("div", {class: "m-actions"},
+      mBuildButton("select", option.current ? "Selected" : "Select", "Select " + where, {on: option.current, reason: loaded ? stopFirst : blocked || (!option.downloaded ? "Download it first: only a downloaded build can be selected." : ""), onclick: async () => {
         $("variants-error").textContent = ""; $("variants-note").textContent = "";
         try {
           const saved = await call("PUT", "models/" + model.name + "/run", {quant: row.id, engine: option.engine});
@@ -1460,8 +1657,8 @@ function buildRows(model, row) {
           await refreshVariants();
         } catch (error) { report(error, "variants-error"); }
       }}),
-      mIconButton("download", "Download " + where, option.downloaded ? "Downloaded" : "Download the weights", {on: option.downloaded,
-        reason: blocked || (loaded ? stopFirst : activeDownload ? "Another download is running." : ""), onclick: async () => {
+      mBuildButton("download", "Download", "Download " + where, {on: option.downloaded,
+        reason: loaded ? stopFirst : blocked || (option.downloaded ? "Weights are already downloaded." : activeDownload ? "Another download is running." : ""), onclick: async () => {
         $("variants-error").textContent = ""; $("variants-note").textContent = "";
         downloadKey = key; downloadingNow = true; activeDownload = true;
         lastProgress = {label: option.source, done: 0, total: 0, active: true};
@@ -1473,52 +1670,93 @@ function buildRows(model, row) {
         } catch (error) { report(error, "variants-error"); }
         finally { downloadKey = ""; downloadingNow = false; await refreshVariants().catch(() => {}); }
       }}),
-      mIconButton("trash", "Uninstall " + where, "Uninstall: delete the downloaded weights", {kind: "danger",
-        reason: !option.downloaded ? "Not downloaded." : loaded ? stopFirst : inUse ? "This build is in use: turn the model off or select another build first." : "",
-        onclick: event => askDelete(event.currentTarget, model, row, option)})));
-    const tr = mEl("tr", {class: "m-row-link", "data-selected": option.current ? "" : null, onclick: event => { if (!event.target.closest("button")) quant.click(); }},
-      mEl("td", {class: "m-main"},
+      mBuildButton("trash", "Uninstall", "Uninstall " + where, {kind: "danger",
+        reason: loaded ? stopFirst : !option.downloaded ? "Not downloaded." : inUse ? "This build is in use: turn the model off or select another build first." : "",
+        onclick: event => askDelete(event.currentTarget, model, row, option)})),
+      mEl("small", {class: "m-row-reason"}, loaded ? stopFirst : downloading ? "Downloading weights…" :
+        blocked || (inUse ? "Turn it off or select another build before uninstalling." :
+          option.downloaded ? "Downloaded" : activeDownload ? "Another download is running." : "Download this build before selecting it.")),
+      downloading ?
+        [mEl("progress", {class: "m-progress", max: "100", "aria-label": "Download progress for " + where}),
+          mEl("span", {class: "m-progress-text mono"})] : null);
+    return mEl("tr", {class: "m-row-link", role: "row", "data-selected": option.current ? "" : null, "data-unfit": blocked ? "" : null,
+      onclick: event => { if (!event.target.closest("button") && !getSelection()?.toString()) quant.click(); }},
+      mEl("td", {class: "m-main", role: "cell"},
         mEl("div", {class: "m-name"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null),
         mEl("div", {class: "m-note"}, row.note),
         mEl("div", {class: "m-chips"},
           mEl("span", {class: "m-chip"}, "Engine ", mEl("b", {}, option.engine)),
           mEl("span", {class: "m-chip"}, "Memory ", mEl("b", {}, row.estimated_mb + " MB")),
-          mEl("span", {class: "m-chip"}, "Download ", mEl("b", {}, row.disk_mb + " MB")))),
+          mEl("span", {class: "m-chip"}, "Download ", mEl("b", {}, row.disk_mb + " MB")),
+          mEl("span", {class: "m-chip"}, blocked ? "Does not fit" : option.runs_on ? "Fits on " + option.runs_on.toUpperCase() : "Fit unknown"))),
       actions);
-    if (!downloading) return [tr];
-    return [tr, mEl("tr", {class: "m-progress-tr"}, mEl("td", {colspan: "2"},
-      mEl("div", {class: "m-progress", role: "progressbar", "aria-label": "Download progress for " + where}, mEl("div", {class: "m-progress-fill"})),
-      mEl("span", {class: "m-progress-text mono", role: "status"})))];
   });
 }
+const expandedModels = new Map();
 function renderVariants(data) {
   lastVariants = data;
+  renderBuildActivity();
+  const choices = $("catalog-models");
+  choices.replaceChildren(...data.models.map(model => mEl("option", {value: model.name}, model.title)));
+  const activeControl = document.activeElement;
+  const focusName = $("variant-list").contains(activeControl) ? activeControl.getAttribute("aria-label") : null;
+  let progressKey = activeDownload ? downloadKey : "";
+  if (activeDownload && lastProgress && !progressKey) {
+    for (const model of data.models) {
+      const row = model.builds.find(build => build.engines.some(option => option.source === lastProgress.label));
+      const option = row?.engines.find(engine => engine.source === lastProgress.label);
+      if (!option) continue;
+      progressKey = model.name + "/" + row.id + "/" + option.engine;
+      break;
+    }
+  }
   $("variants-hardware").replaceChildren(mEl("strong", {}, "Hardware"), mEl("span", {class: "m-stat"}, data.summary));
-  $("variant-list").replaceChildren(...data.models.map(model => {
+  $("variant-list").replaceChildren(...data.models.map((model, index) => {
     const [kind, stateText, stateHelp] = MODEL_STATES[model.state] || ["unloaded", model.state, ""];
-    const helpId = "state-help-" + model.name;
+    const tableId = "build-table-" + model.name;
+    const downloading = progressKey.startsWith(model.name + "/");
+    const expanded = downloading || (expandedModels.get(model.name) ?? index === 0);
+    const disclosure = mEl("button", {type: "button", class: "panel-help", "aria-label": model.title + " builds",
+      title: model.title + " builds", "aria-controls": tableId, "aria-expanded": String(expanded),
+      "aria-disabled": downloading ? "true" : null,
+      onclick: downloading ? null : event => {
+        const open = $(tableId).hidden;
+        expandedModels.set(model.name, open);
+        $(tableId).hidden = !open;
+        event.currentTarget.setAttribute("aria-expanded", String(open));
+      }}, mIcon("chevron"));
+    const preloadReason = model.state === "stopped" ? "Turn it on first." : model.state === "running" ? "Already in memory." : "";
     const head = mEl("header", {class: "m-head"},
       mEl("div", {class: "m-title"}, mEl("h3", {id: "model-" + model.name}, model.title),
         mEl("div", {class: "m-sub"}, mEl("span", {class: "m-small-text"}, "Selected: ", ...(model.current_quant ? [mEl("span", {class: "mono"}, model.current_quant), " on ", mEl("span", {class: "mono"}, model.current_engine)] : [mEl("span", {class: "mono"}, "none")])),
-          ...model.capabilities.map(capability => mPill(capability[0].toUpperCase() + capability.slice(1))))),
-      mEl("div", {class: "m-lifecycle"}, mEl("span", {class: "m-state"}, mPill(stateText, "state " + kind), ...(stateHelp ? mHelp(helpId, "What " + stateText.toLowerCase() + " means", stateHelp) : [])),
+          mPill(stateText, "state " + kind))),
+      mEl("div", {class: "m-lifecycle"},
         mEl("div", {class: "m-seg", role: "group", "aria-label": model.title + " lifecycle"},
+          panelHelp(model.title, stateHelp), disclosure,
           model.state === "stopped" ? modelAction(model, "on", "Turn on", false, "", "Turning on") : modelAction(model, "stop", "Turn off", false, "", "Turning off"),
-          modelAction(model, "start", "Preload", model.state !== "ready", model.state === "stopped" ? "Turn it on first." : "Already in memory.", "Loading"))));
-    const blocked = model.builds.flatMap(row => row.engines.filter(option => option.fits === false)
-      .map(option => (model.builds.length > 1 ? row.title + " on " + option.engine + ": " : "") + option.reason));
-    const banner = blocked.length ? mEl("div", {class: "m-banner", role: "note"}, mEl("span", {"aria-hidden": "true"}, "⚠"), mEl("div", {}, ...blocked.map(text => mEl("p", {}, text)))) : null;
-    const table = mEl("table", {class: "m-builds m-rows", "aria-label": model.title + " builds"},
-      mEl("tbody", {}, ...model.builds.flatMap(row => buildRows(model, row)).flat()));
-    return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, banner, table);
+          modelAction(model, "start", "Preload", Boolean(preloadReason), preloadReason, "Loading")),
+        preloadReason ? mEl("small", {class: "m-row-reason"}, "Preload: " + preloadReason) : null));
+    const table = mEl("table", {id: tableId, class: "m-builds m-rows", role: "table", hidden: !expanded, "aria-label": model.title + " builds"},
+      mEl("tbody", {role: "rowgroup"}, ...model.builds.flatMap(row => buildRows(model, row, progressKey))));
+    return mEl("li", {class: "m-panel m-card", "aria-labelledby": "model-" + model.name}, head, table);
   }));
+  if (focusName) {
+    const replacement = [...$("variant-list").querySelectorAll("button")].find(button => button.getAttribute("aria-label") === focusName);
+    (replacement || $("page-title")).focus({preventScroll: true});
+  }
   paintRowProgress();
 }
 function renderMarket(data) {
   $("market-hardware").replaceChildren(mEl("strong", {}, "Hardware"), mEl("span", {class: "m-stat"}, data.summary));
-  $("market-list").replaceChildren(...data.models.map(model => {
-    const head = mEl("div", {class: "m-head"}, mEl("div", {class: "m-title"}, mEl("h3", {}, model.title)));
-    if (!model.variants.length) return mEl("li", {class: "m-panel m-card m-pad"}, head, mEl("p", {class: "m-small-text"}, model.note || "No other variants in its repository."));
+  const notices = data.models.filter(model => !model.variants.length && model.note);
+  const groups = data.models.filter(model => model.variants.length || model.note);
+  $("market-empty").hidden = !data.models.every(model => !model.variants.length);
+  $("market-empty").textContent = notices.some(model => /offline/.test(model.note)) ?
+    "Repository listings are unavailable. See the reason beside each model." : "No additional builds found.";
+  $("market-list").replaceChildren(...groups.map(model => {
+    const head = mEl("div", {class: "m-head"}, mEl("div", {class: "m-title"}, mEl("h3", {}, model.title)),
+      panelHelp(model.title + " variants", "Add a repository build to Models before downloading its weights."));
+    if (!model.variants.length) return mEl("li", {class: "m-panel m-card"}, head, mEl("p", {class: "m-small-text m-pad"}, model.note));
     return mEl("li", {class: "m-panel m-card"}, head, mEl("table", {class: "m-builds", "aria-label": model.title + " variants"},
       mEl("thead", {}, mEl("tr", {}, mEl("th", {scope: "col"}, "Build"), mEl("th", {scope: "col", class: "num"}, "Memory est."), mEl("th", {scope: "col", class: "num"}, "Download size"),
         mEl("th", {scope: "col"}, "Fit"), mEl("th", {scope: "col", class: "m-right"}, "Actions"))),
@@ -1530,19 +1768,39 @@ function renderMarket(data) {
             try {
               await (row.added ? call("DELETE", "marketplace/" + model.name + "/" + encodeURIComponent(row.quant)) : call("POST", "marketplace/" + model.name + "/add", {quant: row.quant}));
               $("market-note").textContent = row.added ? "Removed " + row.quant + " from " + model.title + "." : "Added " + row.quant + " to " + model.title + ". Download and select it on the Models page.";
+              if ($("drawer-body").contains(add)) $("drawer").hidePopover();
               await Promise.all([refreshMarket(), refreshVariants()]);
             } catch (error) { report(error, "market-error"); }
           }, row.added ? "danger" : "");
-        return mEl("tr", {}, mEl("th", {scope: "row", class: "mono m-quant-text"}, row.quant),
+        const details = mEl("button", {type: "button", class: "m-quant mono", "aria-haspopup": "dialog",
+          onclick: event => openDrawer(event.currentTarget, row.quant,
+            mEl("p", {}, model.title), mEl("p", {class: "description"}, fit),
+            mEl("p", {class: "mono"}, "Memory " + row.estimated_mb + " MB · Download " + row.disk_mb + " MB"),
+            !row.added && row.fits === false ? null : mEl("div", {}, add))}, row.quant);
+        return mEl("tr", {}, mEl("th", {scope: "row", class: "mono m-quant-text"}, details),
           mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Memory est."), row.estimated_mb + " MB"),
           mEl("td", {class: "num"}, mEl("span", {class: "m-mobile-label", "aria-hidden": "true"}, "Download size"), row.disk_mb + " MB"),
           mEl("td", {class: row.fits === false ? "m-reason" : "m-note"}, fit),
-          mEl("td", {class: "m-actions-cell"}, mEl("div", {class: "m-actions"}, add)));
+          mEl("td", {class: "m-actions-cell"}, row.added ? "Added" : ""));
       }))));
   }));
+  filterMarketplace();
 }
 async function refreshMarket() {
-  if (hasTag("variants")) renderMarket(await call("GET", "marketplace", undefined, 30000));
+  if (!hasTag("variants") || !$("market-loading").hidden) return;
+  $("market-loading").hidden = false;
+  $("market-empty").hidden = true;
+  $("market-error").textContent = "";
+  $("retry-market").hidden = true;
+  try {
+    renderMarket(await call("GET", "marketplace", undefined, 30000));
+    $("retry-market").hidden = $("market-empty").hidden || ![...$("market-list").children].some(node => node.textContent.includes("offline?"));
+  } catch (error) {
+    if (error.name !== "AbortError" && error.status !== 401) $("retry-market").hidden = false;
+    report(error, "market-error");
+  } finally {
+    $("market-loading").hidden = true;
+  }
 }
 async function refreshVariants() {
   if (!hasTag("variants")) return;
@@ -1573,6 +1831,21 @@ $("voice-form").onsubmit = async event => {
 async function refreshUpdates() {
   if (CONFIG.updates) renderUpdates(await call("GET", "updates"));
 }
+function renderBuildActivity() {
+  const installed = lastVariants.models.flatMap(model => model.builds.flatMap(build => build.engines)).filter(option => option.downloaded).length;
+  const detail = activeDownload && lastProgress
+    ? " · Download in progress: " + lastProgress.label
+    : " · No download in progress";
+  const text = installed + (installed === 1 ? " build installed" : " builds installed") + detail;
+  if ($("build-activity-note").textContent !== text) $("build-activity-note").textContent = text;
+}
+$("refresh-build-activity").onclick = async () => {
+  busy("refresh-build-activity", true);
+  $("build-activity-error").textContent = "";
+  try { await refreshVariants(); }
+  catch (error) { report(error, "build-activity-error"); }
+  finally { busy("refresh-build-activity", false); }
+};
 function renderSettings(rows) {
   settingRows = rows;
   $("settings-card").hidden = !rows.length;
@@ -1592,6 +1865,7 @@ function renderSettings(rows) {
     reset.onclick = () => saveSettings({[row.key]: null});
     if (row.kind === "bool") {
       input.type = "checkbox";
+      input.setAttribute("role", "switch");
       input.checked = !!row.value;
     } else if (row.kind === "text") {
       input.type = "text";
@@ -1610,12 +1884,19 @@ function renderSettings(rows) {
     box.append(top, input, note);
     return box;
   }));
+  filterSettings();
+  syncSettingDraft();
 }
 function settingValue(row) {
   const input = $("setting-" + row.key);
   if (row.kind === "bool") return input.checked;
   if (row.kind === "text") return input.value.trim();
   return input.value === "" ? null : Number(input.value);
+}
+function syncSettingDraft() {
+  const changed = settingRows.some(row => settingValue(row) !== row.value);
+  $("settings-draft-actions").toggleAttribute("data-clean", !changed);
+  $("settings-draft-actions").inert = !changed;
 }
 async function saveSettings(values) {
   $("settings-error").textContent = "";
@@ -1648,7 +1929,10 @@ async function pollStatus() {
   try {
     await Promise.all([
       refreshHealth(),
-      refreshTokens().catch(error => report(error, "page-error")),
+      refreshTokens().catch(error => {
+        if (error.status !== 401 && error.name !== "AbortError") $("retry-tokens").hidden = false;
+        report(error, "token-error");
+      }),
       refreshWorkers().catch(error => report(error, "page-error")),
       refreshUpdates().catch(error => report(error, "page-error"))
     ]);
@@ -1678,7 +1962,7 @@ $("create").onsubmit = async event => {
   event.preventDefault();
   const name = $("name").value.trim();
   if (!name) {
-    $("token-error").textContent = "Project name is empty. Enter a name to create a token.";
+    $("token-form-error").textContent = "Project name is empty. Enter a name to create a token.";
     $("name").focus();
     return;
   }
@@ -1687,13 +1971,13 @@ $("create").onsubmit = async event => {
     || (!$("rate").validity.valid && "Requests per minute must be a whole number from 1 to 100000.")
     || (!$("expires").validity.valid && "Expiry must be a whole number of days from 1 to 3650.");
   if (invalid) {
-    $("token-error").textContent = invalid;
+    $("token-form-error").textContent = invalid;
     $("projects").focus();
     return;
   }
   tokenVersion++;
   forgetToken();
-  $("token-error").textContent = "";
+  $("token-form-error").textContent = "";
   busy("create-button", true);
   try {
     const made = await call("POST", "tokens", {name, ...(projects.length ? {projects} : {}),
@@ -1705,9 +1989,10 @@ $("create").onsubmit = async event => {
     $("projects").value = "";
     $("rate").value = "";
     $("expires").value = "";
-    $("copy").focus();
+    syncScope("projects");
+    if ($("drawer").matches(":popover-open")) $("copy").focus();
     await refreshTokens();
-  } catch (error) { report(error, "token-error"); }
+  } catch (error) { report(error, "token-form-error"); }
   finally { busy("create-button", false); }
 };
 $("copy").onclick = async () => {
@@ -1770,7 +2055,7 @@ $("update-weights").onclick = async () => {
   } catch (error) { report(error, "updates-error"); }
   finally { watchProgress(false); renderProgress(null); busy("update-weights", false); }
 };
-$("cancel-edit").onclick = () => $("edit-dialog").close();
+$("cancel-edit").onclick = () => $("drawer").hidePopover();
 $("edit-form").onsubmit = async event => {
   event.preventDefault();
   if (!pendingEdit) return;
@@ -1785,9 +2070,9 @@ $("edit-form").onsubmit = async event => {
   try {
     await call("PUT", "tokens/" + encodeURIComponent(pendingEdit.id),
       {projects: parsed.list.length ? parsed.list : null, rate: $("edit-rate").value ? Number($("edit-rate").value) : null});
-    $("edit-dialog").close();
+    if ($("drawer-body").contains($("edit-panel"))) $("drawer").hidePopover();
     await refreshTokens();
-  } catch (error) { report(error, $("edit-dialog").open ? "edit-error" : "token-error"); }
+  } catch (error) { report(error, $("drawer-body").contains($("edit-panel")) ? "edit-error" : "token-error"); }
   finally { busy("save-edit", false); }
 };
 $("cancel-revoke").onclick = () => $("revoke-dialog").close();
@@ -1810,6 +2095,113 @@ $("confirm-revoke").onclick = async () => {
   } catch (error) { report(error, $("revoke-dialog").open ? "revoke-error" : "token-error"); }
   finally { busy("confirm-revoke", false); }
 };
+function syncScope(id) {
+  const input = $(id);
+  const enabled = Boolean(input.value.trim());
+  $("switch-" + id).setAttribute("aria-checked", String(enabled));
+  input.disabled = input.parentElement.hidden = !enabled;
+}
+for (const id of ["projects", "edit-projects"]) {
+  const input = $(id);
+  const toggle = mEl("button", {id: "switch-" + id, class: "scope-toggle", role: "switch",
+    type: "button", "aria-controls": id, "aria-label": "Restrict to specific projects", "aria-checked": "false",
+    onclick: event => {
+      const active = input.disabled;
+      event.currentTarget.setAttribute("aria-checked", String(active));
+      input.disabled = input.parentElement.hidden = !active;
+      if (active) input.focus();
+      else input.value = "";
+    }}, "Restrict to specific projects");
+  input.parentElement.before(toggle);
+  syncScope(id);
+}
+$("drawer-expand").replaceChildren(mIcon("expand"));
+$("drawer-close").replaceChildren(mIcon("close"));
+$("drawer-expand").onclick = event => {
+  const expanded = $("drawer").classList.toggle("expanded");
+  event.currentTarget.setAttribute("aria-pressed", String(expanded));
+  event.currentTarget.replaceChildren(mIcon(expanded ? "collapse" : "expand"));
+};
+for (const heading of document.querySelectorAll(".page-view .section-heading, #overview-usage header")) {
+  const title = heading.querySelector("h2");
+  const copy = heading.parentElement.querySelector(":scope > .description");
+  if (title && copy?.textContent.trim()) title.after(panelHelp(title.textContent, copy.textContent.trim()));
+}
+for (const [selector, copy] of [
+  ["#overview-details-section > h2", "Service address and inference endpoints."],
+  ["#overview-usage h2", "Requests counted against each project token."],
+  ["#pg-title", "Send an inference request using a temporary project token."],
+  ["#readiness-title", "Readiness shows whether the service can answer inference requests."]
+]) {
+  const title = document.querySelector(selector);
+  const name = selector === "#readiness-title" ? "Readiness" : title.textContent;
+  const wrapper = mEl("div", {class: "overview-panel-head"});
+  title.before(wrapper);
+  wrapper.append(title, panelHelp(name, copy));
+  if (selector === "#pg-title") wrapper.classList.add("playground-heading");
+}
+const tokensHeading = $("tokens-title").parentElement;
+const createToken = mEl("button", {id: "new-token", class: "primary", type: "button", "aria-haspopup": "dialog",
+  onclick: event => {
+    openDrawer(event.currentTarget, "Create token", $("token-create-slot"));
+    $($("fresh").hidden ? "name" : "copy").focus();
+  }}, "Create token");
+const tokenSearch = mEl("input", {id: "token-search", type: "search", "aria-label": "Search project tokens",
+  placeholder: "Search tokens"});
+const tokenNoMatches = mEl("p", {class: "description", role: "status", hidden: true}, "No tokens match this search.");
+tokensHeading.append(createToken, tokenSearch);
+$("token-table").after(tokenNoMatches);
+function filterTokens() {
+  const query = tokenSearch.value.trim().toLowerCase();
+  for (const row of $("rows").rows) row.hidden = !row.cells[0].textContent.toLowerCase().includes(query);
+  tokenNoMatches.hidden = !tokenRows.length || [...$("rows").rows].some(row => !row.hidden);
+}
+tokenSearch.addEventListener("input", filterTokens);
+const marketSearch = mEl("input", {id: "market-search", type: "search", "aria-label": "Search Marketplace",
+  placeholder: "Search builds"});
+const marketNoMatches = mEl("p", {class: "description", role: "status", hidden: true}, "No builds match this search.");
+$("market-title").parentElement.append(marketSearch);
+$("market-list").after(marketNoMatches);
+function filterMarketplace() {
+  const query = marketSearch.value.trim().toLowerCase();
+  const groups = [...$("market-list").children];
+  for (const group of groups) {
+    const rows = [...group.querySelectorAll("tbody tr")];
+    const modelMatch = group.querySelector("h3").textContent.toLowerCase().includes(query);
+    for (const row of rows) row.hidden = Boolean(query) && !modelMatch && !row.textContent.toLowerCase().includes(query);
+    group.hidden = Boolean(query) && !modelMatch && !rows.some(row => !row.hidden);
+  }
+  marketNoMatches.hidden = !query || !groups.length || groups.some(group => !group.hidden);
+}
+marketSearch.addEventListener("input", filterMarketplace);
+const settingsSearch = mEl("input", {id: "settings-search", type: "search", "aria-label": "Search settings",
+  placeholder: "Search settings"});
+const settingsSave = $("save-settings");
+settingsSave.setAttribute("form", "settings-form");
+const settingsDiscard = mEl("button", {type: "button", onclick: () => {
+  renderSettings(settingRows);
+  $("settings-note").textContent = "Draft discarded.";
+  settingsSearch.focus();
+}}, "Discard");
+$("settings-title").parentElement.append(mEl("div", {id: "settings-draft-actions"},
+  settingsDiscard, settingsSave), settingsSearch);
+syncSettingDraft();
+$("settings-list").addEventListener("input", syncSettingDraft);
+function filterSettings() {
+  const query = settingsSearch.value.trim().toLowerCase();
+  for (const row of $("settings-list").children) row.hidden = !row.textContent.toLowerCase().includes(query);
+}
+settingsSearch.addEventListener("input", filterSettings);
+const modelChoices = mEl("datalist", {id: "catalog-models"});
+document.body.append(modelChoices);
+function stylePlaygroundSwitches() {
+  for (const input of $("playground").querySelectorAll('input[type="checkbox"]')) input.setAttribute("role", "switch");
+  $("pg-model")?.setAttribute("list", modelChoices.id);
+}
+stylePlaygroundSwitches();
+new MutationObserver(stylePlaygroundSwitches).observe($("pg-fields"), {childList: true, subtree: true});
+$("retry-tokens").onclick = () => refreshTokens(true).catch(error => report(error, "token-error"));
+$("retry-market").onclick = refreshMarket;
 let restored = "";
 try { restored = sessionStorage.getItem(storageKey) || ""; } catch {}
 if (restored) signIn(restored);

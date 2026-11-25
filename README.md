@@ -2,7 +2,7 @@
 
 Chat models over HTTP, port 29204. One service replaces `CNV_LFM3_Model`, `CNV_SparkX26_Model`, `CNV_MiniCPM52B_Model` and `CNV_BitNet2B_Model`: a request names the model, the service runs it on its engine. Admin settings, tokens, rate limits, metrics, streaming and answer caches are the shared model-service ones.
 
-First start: open `/admin/` → **Models and builds** → **Download** on a build. Startup and requests load downloaded files only; a missing build returns 503 and keeps health and admin up.
+First start: open `/admin/` → **Models**. Open a model’s build list, download a fitting build and select it. Startup and requests load downloaded files only. A missing build returns 503 and leaves health and admin available.
 
 ## API
 

@@ -2,6 +2,8 @@
 
 ## 0.1.0
 
+- Admin redesign: moved the sidebar toggle and page title into the header, added phone navigation, moved token forms and panel help into right-side drawers, and put live progress and fit reasons inside their build rows. Updates shows live catalog and download activity. Try it requires an explicit model ID.
+
 - Model states simplified: a model is **Off** or **On**, with one Turn on / Turn off button and a Preload button (Restart is gone from the page; the API keeps it, and gains `POST /admin/models/{name}/on`). The pill says whether the model is in memory, checked against Ollama (`/api/ps`) each time the page lists models, so it no longer shows "Loaded" after Ollama freed the model on its keep-alive. A model that is not really in memory no longer blocks Select, Download and Uninstall with "stop it first".
 - Fix: a slow model load (minutes for a large model) held the router lock, which blocked Stop, the admin sync and other requests for the whole load. The lock is now held only to read and store the handle. The load balancer's read timeout is 330 s (was 130 s) so Preload no longer answers 504 while the load is still running.
 - Fix: `inklingmini` answered with an empty string after one token. The Hub import carries generic stop tokens and no renderer. A catalog build can now name an Ollama `renderer` and `parser`; after Download pulls it, the service recreates the model from the same weights with them (no second download). All ten `inklingmini` builds use `inkling2`. Needs Ollama 0.40.18 or newer. A build pulled before this change needs one more Download, or the manual `ollama create`.
