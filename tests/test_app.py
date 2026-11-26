@@ -327,3 +327,21 @@ def test_on_allows_requests_without_loading_and_a_freed_model_is_not_loaded(tmp_
     router.adapters["ollama"].resident = lambda entry, quant: False  # Ollama freed it after its keep-alive
     assert state() == "ready"
     assert c.put("/admin/models/lfm3/run", json={"quant": "Q8_0", "engine": "ollama"}, headers=ADMIN).status_code == 200  # not blocked by a stale handle
+
+
+def test_saved_cpu_threads_reach_the_ollama_adapter(tmp_path):
+    router = make_router()
+    store = TokenStore(str(tmp_path / "tokens.json"))
+    c = TestClient(create_app(router, "pw", tokens=store))
+    assert c.put("/admin/threads", json={"num_thread": 3}, headers=ADMIN).status_code == 200
+    assert router.adapters["ollama"].num_thread == 3
+    restarted = make_router()
+    create_app(restarted, "pw", tokens=store)
+    assert restarted.adapters["ollama"].num_thread == 3  # a saved value applies from the first request
+
+
+def test_models_list_marks_marketplace_additions(tmp_path):
+    c = TestClient(create_app(make_router(), "pw", tokens=TokenStore(str(tmp_path / "tokens.json")), fetch_sizes=hub_tree))
+    assert c.post("/admin/marketplace/lfm3/add", json={"quant": "IQ4_XS"}, headers=ADMIN).status_code == 200
+    lfm3 = next(m for m in c.get("/admin/models", headers=ADMIN).json()["models"] if m["name"] == "lfm3")
+    assert [b["id"] for b in lfm3["builds"] if b["added"]] == ["IQ4_XS"]

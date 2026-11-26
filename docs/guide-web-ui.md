@@ -58,6 +58,8 @@ Each page has its own URL fragment and supports browser Back, Forward and direct
 
 ## Overview
 
+The **Models in memory** tile counts the loaded models out of all models; it refreshes every 10 seconds.
+
 The readiness panel says **Ready to serve** when at least one model is in memory. Otherwise it says **Model not ready**. That is normal right after a start, even with weights downloaded, because nothing loads until the first request or **Preload**.
 
 **Connect to this service** lists the addresses other services can use: the address you opened the page with, the same PC (`127.0.0.1`), another Docker container on the same network (the `_lb` name from the compose file) and a Docker container calling this PC (`host.docker.internal`). It also lists each endpoint with a **Copy** button. Callers send a token in `X-Internal-Token`.
@@ -99,6 +101,8 @@ The memory estimate is the file size plus a margin. It is not measured. The down
 
 **Select** and **Download** show as pressed when already true.
 
+A build added from the Marketplace has an **Added** tag and a **Remove** button, which takes it out of the model's list. Uninstall its weights first. The selected build cannot be removed.
+
 While a model is in memory, all three buttons are disabled for that model. Press **Turn off** first. Other models stay usable. The selected build of a model that is on cannot be uninstalled: turn the model off or select another build first.
 
 ### Downloads
@@ -118,7 +122,7 @@ curl -X PUT http://127.0.0.1:29204/admin/models/lfm3/run -H "X-Internal-Token: <
 
 The page lists the quantizations in each supported model's Hugging Face repository that the model does not have yet, with their size and whether this machine can run them. **Search builds** filters the list. **Add** puts a variant under its model on **Models**, where you download and select it. A variant that does not fit cannot be added. If the fit cannot be checked, the row says so and adding is allowed.
 
-An added variant leaves the Marketplace list. To remove it again, call `DELETE /admin/marketplace/{model}/{quant}` with the admin password; its downloaded files stay on disk, and the selected build cannot be removed.
+An added variant leaves the Marketplace list. To remove it, use **Remove** on its row on **Models**; it then shows in the Marketplace again.
 
 Added variants run on Ollama only. BitNet has none, because its sidecar holds one file. The listing needs the Hub; offline, the page says so and offers a retry.
 
@@ -145,7 +149,7 @@ Tokens live in `tokens.json` (`SERVICE_TOKENS_FILE`). In Docker that is the `cnv
 
 The page has runtime settings with a search box: Ollama address, GGUF folder, parallel generations, caches and limits, thinking and hide reasoning. Each row shows where its value comes from (saved, environment or default). Change values, then press **Save changes** or **Discard**. A saved value beats the environment variable; **Reset** removes it. Every replica applies a change within a few seconds. Rows marked "applies after a restart" are read once at start. The admin password, ports and replica count stay in `.env` or the compose file.
 
-**CPU threads** saves a value from 1 to 256. The service stores and reports it, but does not send it to Ollama: Ollama chooses its own threads.
+**CPU threads** saves a value from 1 to 256 and sends it to Ollama as `num_thread` with every request, so it applies from the next question on every replica. Ollama reloads a model once when the value changes, so that answer is slower. Set it to the number of physical CPU cores. Unset lets Ollama decide. BitNet's sidecar ignores it.
 
 The page also notes the replica count, which it cannot change. To change it, set `SERVICE_REPLICAS` in `.env.compose` (or `.env` on the deployment device), then:
 

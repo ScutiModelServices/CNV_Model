@@ -131,3 +131,13 @@ def test_ollama_download_rebuilds_a_model_that_names_a_renderer(monkeypatch):
     assert calls == []  # an ordinary build is only pulled
     adapter.download(plain, "Q2")
     assert calls == [("/api/create", {"model": "hf.co/org/m:Q2", "files": {"model.gguf": "sha256:m"}, "stream": False, "renderer": "r", "parser": "r"})]
+
+
+def test_ollama_sends_the_current_cpu_thread_count(monkeypatch):
+    monkeypatch.setattr("adapters.ollama._json_call", lambda *a, **k: {})
+    adapter = OllamaAdapter("http://127.0.0.1:11434")
+    entry = ModelEntry("m", "M", "org/m", frozenset(), (Build("Q4_K_M", 1, engines={"ollama": {}}),))
+    loaded = adapter.load(entry, "Q4_K_M")
+    assert "num_thread" not in loaded._body([], 0, 8, False)["options"]
+    adapter.num_thread = 4  # a change applies to an already loaded model
+    assert loaded._body([], 0, 8, False)["options"]["num_thread"] == 4

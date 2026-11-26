@@ -1241,7 +1241,7 @@ async function refreshHealth() {
     ? "m8 12 3 3 5-6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"
     : state === "Starting" ? "M12 8v4l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"
     : "m9 9 6 6m0-6-6 6M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0");
-  $("model-value").textContent = !data ? "—" : data.models
+  if (!Array.isArray(data?.models)) $("model-value").textContent = !data ? "—" : data.models  // a catalog list is counted by renderModelCount
     ? Object.values(data.models).filter(Boolean).length + " / " + Object.keys(data.models).length
     : (data.ready ? "Ready" : "Starting");
   $("thread-value").textContent = data ? (data[CONFIG.threadField] ?? "Auto") : "—";
@@ -1663,13 +1663,24 @@ function buildRows(model, row, progressKey) {
       }}),
       mBuildButton("trash", "Uninstall", "Uninstall " + where, {kind: "danger",
         reason: loaded ? stopFirst : !option.downloaded ? "Not downloaded." : inUse ? "This build is in use: turn the model off or select another build first." : "",
-        onclick: event => askDelete(event.currentTarget, model, row, option)})),
+        onclick: event => askDelete(event.currentTarget, model, row, option)}),
+      row.added ? mBuildButton("close", "Remove", "Remove " + where + " from the list", {
+        reason: option.current ? "Select another build first." : option.downloaded ? "Uninstall it first, or its files stay on disk." : downloading ? "Downloading weights…" : "",
+        onclick: async () => {
+          $("variants-error").textContent = ""; $("variants-note").textContent = "";
+          try {
+            await call("DELETE", "marketplace/" + model.name + "/" + encodeURIComponent(row.id));
+            $("variants-note").textContent = "Removed " + row.title + " from " + model.title + ". The Marketplace lists it again.";
+            await Promise.all([refreshVariants(), refreshMarket()]);
+          } catch (error) { report(error, "variants-error"); }
+        }}) : null),
       downloading ?
         [mEl("progress", {class: "m-progress", max: "100", "aria-label": "Download progress for " + where}),
           mEl("span", {class: "m-progress-text mono"})] : null);
     return mEl("tr", {role: "row", "data-selected": option.current ? "" : null, "data-unfit": blocked ? "" : null},
       mEl("td", {class: "m-main", role: "cell"},
-        mEl("div", {class: "m-name"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null),
+        mEl("div", {class: "m-name"}, quant, option.current ? mEl("span", {class: "m-pill selected"}, "Selected") : null,
+          row.added ? mEl("span", {class: "m-pill"}, "Added") : null),
         mEl("div", {class: "m-note"}, row.note),
         mEl("div", {class: "m-chips"},
           mEl("span", {class: "m-chip"}, "Engine ", mEl("b", {}, option.engine)),
@@ -1680,9 +1691,14 @@ function buildRows(model, row, progressKey) {
   });
 }
 const expandedModels = new Map();
+function renderModelCount(data) {
+  $("model-label").textContent = "Models in memory";
+  $("model-value").textContent = data.models.filter(model => model.state === "running").length + " / " + data.models.length;
+}
 function renderVariants(data) {
   lastVariants = data;
   renderBuildActivity();
+  renderModelCount(data);
   const choices = $("catalog-models");
   choices.replaceChildren(...data.models.map(model => mEl("option", {value: model.name}, model.title)));
   const activeControl = document.activeElement;
@@ -1919,7 +1935,9 @@ async function pollStatus() {
         report(error, "token-error");
       }),
       refreshWorkers().catch(error => report(error, "page-error")),
-      refreshUpdates().catch(error => report(error, "page-error"))
+      refreshUpdates().catch(error => report(error, "page-error")),
+      // the Overview tile counts models in memory, which changes without any action on this page
+      hasTag("variants") && location.hash === "#overview" ? refreshVariants().catch(error => report(error, "page-error")) : null
     ]);
   } finally { polling = false; }
 }
