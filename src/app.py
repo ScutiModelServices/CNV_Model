@@ -210,7 +210,8 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     router.guard = router.guard or fit_reason  # a build that does not fit is never loaded, not even by a request
     marker = Path(tokens.settings_path).parent / ".cnv-weights-version"
-    threads: int | None = None  # saved and reported only; Ollama chooses its own threads
+    threads: int | None = settings.load(tokens.settings_path).get("num_thread")  # None = Ollama decides
+    router.adapters["ollama"].num_thread = threads
 
     def cache_limit() -> int:
         """Answers this replica keeps; 0 = off."""
@@ -244,7 +245,7 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         nonlocal seen, threads, extras_text
         while True:
             saved = await asyncio.to_thread(settings.load, tokens.settings_path)
-            threads = saved.get("num_thread") or threads
+            threads = router.adapters["ollama"].num_thread = saved.get("num_thread") or threads
             text = extras_file.read_text("utf-8") if extras_file.exists() else ""
             if text != extras_text:
                 extras_text = text
@@ -454,9 +455,9 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
 
     @app.put("/admin/threads", dependencies=[Depends(admin)])
     def set_threads(body: Threads) -> dict[str, Any]:
-        """Save and report the value for compatibility; Ollama chooses its own threads."""
+        """CPU threads Ollama uses per request, from the next one on; other replicas apply it within a second."""
         nonlocal threads
-        threads = body.num_thread
+        threads = router.adapters["ollama"].num_thread = body.num_thread
         settings.save(tokens.settings_path, num_thread=body.num_thread)
         return {"num_thread": threads}
 
@@ -477,9 +478,11 @@ def create_app(router: ModelRouter | None = None, admin_password: str | None = N
         for entry in router.catalog.values():
             live = await asyncio.to_thread(builds.cached_sizes, sizes_file, entry.repo, fetch_sizes, time.time())
             current = current_of(entry)
+            added = {x["quant"] for x in extras.get(entry.name, [])}  # from the Marketplace: the page can remove these
             rows.append({"name": entry.name, "title": entry.title, "capabilities": sorted(entry.capabilities),
                          "current_quant": current[0], "current_engine": current[1], "state": router.state_of(entry.name),
-                         "builds": builds.listing(entry, hw, current, on_disk, live, flags)})
+                         "builds": [{**row, "added": row["id"] in added}
+                                    for row in builds.listing(entry, hw, current, on_disk, live, flags)]})
         return machine, rows
 
     @app.get("/admin/models", dependencies=[Depends(admin)])

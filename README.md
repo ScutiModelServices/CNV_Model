@@ -26,7 +26,7 @@ Each model is **Off** or **On** on the admin Models page, with a **Turn on** or 
 
 ## Marketplace
 
-The admin **Marketplace** page lists the quantizations that exist in each supported model's Hugging Face repository and that its catalog file does not list, with their size and whether this machine can run them. **Add** puts one under the model's builds (saved in `marketplace.json` in the data volume, shared by replicas); download and run it on the Models page. **Remove** takes an added variant out again (its files stay on disk; the build in use cannot be removed). Added variants run on Ollama only; a model that runs on its own llama.cpp sidecar (`bitnet2b`) has none, since a sidecar holds one file. The listing needs the Hub; offline it says so and the catalog builds still work.
+The admin **Marketplace** page lists the quantizations that exist in each supported model's Hugging Face repository and that its catalog file does not list, with their size and whether this machine can run them. **Add** puts one under the model's builds (saved in `marketplace.json` in the data volume, shared by replicas); download and run it on the Models page. **Remove**, on the added build's row on the Models page, takes it out again (uninstall its weights first; the selected build cannot be removed). Added variants run on Ollama only; a model that runs on its own llama.cpp sidecar (`bitnet2b`) has none, since a sidecar holds one file. The listing needs the Hub; offline it says so and the catalog builds still work.
 
 ## What fits
 

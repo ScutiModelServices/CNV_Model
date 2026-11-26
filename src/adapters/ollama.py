@@ -54,10 +54,11 @@ class OllamaLoaded:
     """Answer generations through Ollama's /api/chat."""
 
     def __init__(self, url: str, model: str, load_timeout: float = 300.0, thinking: bool = False,
-                 hide_reasoning: bool = True, live: Callable[[], tuple[bool, bool]] | None = None) -> None:
-        """Read live thinking/visibility settings for each generation."""
+                 hide_reasoning: bool = True, live: Callable[[], tuple[bool, bool]] | None = None,
+                 threads: Callable[[], int | None] | None = None) -> None:
+        """Read live thinking/visibility and CPU thread settings for each generation."""
         self.url, self.model, self._fixed, self._live = url.rstrip("/"), model, (thinking, hide_reasoning), live
-        self.num_thread: int | None = None  # CPU threads Ollama uses per request; None = Ollama decides
+        self._threads = threads or (lambda: None)
         _json_call(self.url, "/api/generate", {"model": model, "prompt": "", "stream": False}, load_timeout, model)
 
     @property
@@ -72,8 +73,8 @@ class OllamaLoaded:
               tools: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         body = {"model": self.model, "messages": messages, "stream": stream, "think": self.thinking,
                 "options": {"temperature": temperature, "num_predict": max_tokens}}
-        if self.num_thread:
-            body["options"]["num_thread"] = self.num_thread
+        if threads := self._threads():  # None = Ollama decides
+            body["options"]["num_thread"] = threads
         if tools:
             body["tools"] = tools
         return body
@@ -143,13 +144,14 @@ class OllamaAdapter:
         if not self.url:
             raise ValueError("The Ollama server address must not be empty")
         self._live = live
+        self.num_thread: int | None = None  # CPU threads per request, the admin setting; None = Ollama decides
 
     @property
     def same_machine(self) -> bool:
         return urlparse(self.url).hostname in ("127.0.0.1", "localhost", "::1")
 
     def load(self, entry: ModelEntry, quant: str) -> OllamaLoaded:
-        return OllamaLoaded(self.url, entry.source(quant, "ollama"), live=self._live)
+        return OllamaLoaded(self.url, entry.source(quant, "ollama"), live=self._live, threads=lambda: self.num_thread)
 
     def unload(self, entry: ModelEntry, quant: str) -> None:
         """Ask Ollama to free the model now (keep_alive 0)."""
