@@ -79,11 +79,13 @@ def test_create_and_revoke_a_token(page):
     sync_api.expect(page.locator("#rows tr", has_text="Garrison")).to_have_count(0)
 
 
-def test_health_keeps_backend_specific_model_display(page):
+def test_overview_counts_models_in_memory(page):
     page.fill("#admin", PASSWORD)
     page.click("#signin-button")
-    sync_api.expect(page.locator("#model-value")).to_have_text("Starting")
-    sync_api.expect(page.locator("#health-text")).to_have_text("Starting")
+    sync_api.expect(page.locator("#model-label")).to_have_text("Models in memory")
+    sync_api.expect(page.locator("#model-value")).to_have_text("0 / 5")  # nothing loads until a request or Preload
+    sync_api.expect(page.locator("#health-text")).to_have_text("Healthy")
+    sync_api.expect(page.locator("#readiness-title")).to_have_text("Model not ready")
 
 
 def test_token_project_restrictions_are_refused(page):
@@ -168,6 +170,7 @@ def _assert_playground_finished(page, token):
 def test_playground_uses_public_route_and_renders_answer(page):
     """Exercise real public auth and the family fake engine."""
     token = _open_playground(page)
+    page.fill("#pg-model", "lfm3")  # required: there is no default model
     page.fill("#pg-messages-0-content", "Say hello")
     page.click("#pg-send")
     _assert_playground_finished(page, token)
@@ -238,6 +241,8 @@ def test_sidebar_responsive_layout_and_keyboard_toggle(page):
     sync_api.expect(page.locator("#dashboard")).to_be_visible()
     for width in (1280, 768, 767, 375, 320):
         page.set_viewport_size({"width": width, "height": 900})
+        # the phone layout switches on the next frame; reading the toggle before that sees the old state
+        page.evaluate("() => new Promise(done => requestAnimationFrame(() => requestAnimationFrame(done)))")
         toggle = page.locator("#sidebar-toggle")
         for _ in range(2):
             expanded = toggle.get_attribute("aria-expanded") == "false"
@@ -269,6 +274,7 @@ def test_models_card_lists_builds_under_each_model(page):
     sync_api.expect(card).to_contain_text("Liquid LFM3 1.7B")
     sync_api.expect(card).to_contain_text("BitNet b1.58 2B4T")
     lfm3 = page.locator("#variant-list .m-card", has_text="Liquid LFM3 1.7B")
+    lfm3.get_by_role("button", name="Liquid LFM3 1.7B builds").click()  # only the first card starts open
     sync_api.expect(lfm3.get_by_role("button", name="Download Liquid LFM3 1.7B Q8_0 on ollama")).to_be_visible()
 
 
